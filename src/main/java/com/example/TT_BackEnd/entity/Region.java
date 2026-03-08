@@ -31,6 +31,10 @@ public class Region {
     @JsonIgnore
     private List<Campagne> campagnes;
 
+    @OneToMany(mappedBy = "region")
+    @JsonIgnore
+    private List<Structure> structures;
+
     public Region() {}
 
     public Region(String nom) {

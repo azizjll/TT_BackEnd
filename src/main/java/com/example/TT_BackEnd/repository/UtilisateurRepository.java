@@ -1,5 +1,7 @@
 package com.example.TT_BackEnd.repository;
 
+import com.example.TT_BackEnd.entity.Region;
+import com.example.TT_BackEnd.entity.RoleType;
 import com.example.TT_BackEnd.entity.Utilisateur;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -11,4 +13,7 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Long> 
 
     // Ajoute cette méthode pour signin / forgot password
     Optional<Utilisateur> findByEmail(String email);
+
+
+    List<Utilisateur> findByRegionAndRole(Region region, RoleType roleType);
 }

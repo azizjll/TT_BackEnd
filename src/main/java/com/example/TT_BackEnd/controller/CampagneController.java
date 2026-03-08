@@ -21,7 +21,7 @@ public class CampagneController {
     // CREATE
     // =========================
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+
     public Campagne creerCampagne(@RequestBody CampagneRequestDTO dto) {
         return campagneService.creerCampagne(dto);
     }

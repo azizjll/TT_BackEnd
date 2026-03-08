@@ -7,6 +7,7 @@ import com.example.TT_BackEnd.entity.Utilisateur;
 
 import com.example.TT_BackEnd.repository.RegionRepository;
 import com.example.TT_BackEnd.service.AuthService;
+import com.example.TT_BackEnd.util.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +25,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final RegionRepository regionRepository;
+    private final JwtUtils jwtUtils;
 
 
     @GetMapping("/regions")
@@ -43,7 +45,10 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@RequestBody SignupRequest request) {
         authService.signup(request);
-        return ResponseEntity.ok("Inscription réussie ! Vérifiez votre email.");
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Inscription réussie ! Vérifiez votre email."
+        ));
     }
 
     @GetMapping("/verify")
@@ -70,4 +75,30 @@ public class AuthController {
                 "message", "Mot de passe réinitialisé avec succès !"
         ));
     }
+
+    // Récupérer la région du RH connecté
+    @GetMapping("/my-region")
+    public ResponseEntity<RegionDTO> getMyRegion(@RequestHeader("Authorization") String authHeader) {
+        if(authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        String token = authHeader.substring(7);
+        if(!jwtUtils.validateToken(token)) {
+            return ResponseEntity.status(401).build();
+        }
+
+        String email = jwtUtils.getUsernameFromToken(token);
+        Utilisateur user = authService.findByEmail(email);
+
+        if(user.getRegion() == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Region region = user.getRegion();
+        return ResponseEntity.ok(new RegionDTO(region.getId(), region.getNom()));
+    }
+
+
+
 }

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Service
 @Transactional
@@ -78,4 +79,55 @@ public class CandidatureService {
 
         documentRepo.save(d);
     }
+
+    public List<Candidature> getCandidaturesByRegion(Long regionId) {
+        return candidatureRepo.findBySaisonnierRegionId(regionId);
+    }
+
+    public List<Candidature> getCandidaturesByCampagneAndRegion(Long campagneId, Long regionId) {
+        return candidatureRepo.findByCampagneIdAndSaisonnierRegionId(campagneId, regionId);
+    }
+
+    public List<Candidature> getAllCandidatures() {
+        return candidatureRepo.findAll();
+    }
+
+
+    @Transactional
+    public Candidature updateCandidature(
+            Long candidatureId,
+            String nom,
+            String prenom,
+            Integer cin,
+            String rib,
+            String telephone,
+            String email,
+            Long regionId,
+            String statut,
+            String commentaire
+    ) {
+
+        Candidature c = candidatureRepo.findById(candidatureId)
+                .orElseThrow(() -> new RuntimeException("Candidature non trouvée"));
+
+        Saisonnier s = c.getSaisonnier();
+
+        // modification saisonnier
+        s.setNom(nom);
+        s.setPrenom(prenom);
+        s.setCin(cin);
+        s.setRib(rib);
+        s.setTelephone(telephone);
+        s.setEmail(email);
+        s.setRegion(regionRepo.findById(regionId).get());
+
+        saisonnierRepo.save(s);
+
+        // modification candidature
+        c.setStatut(StatutCandidature.valueOf(statut));
+        c.setCommentaire(commentaire);
+
+        return candidatureRepo.save(c);
+    }
+
 }

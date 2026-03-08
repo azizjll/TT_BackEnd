@@ -136,4 +136,11 @@ public class AuthService {
                 .authorities(utilisateur.getRole().name())
                 .build();
     }
+
+    // Récupérer un utilisateur par email
+    public Utilisateur findByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+    }
+
 }

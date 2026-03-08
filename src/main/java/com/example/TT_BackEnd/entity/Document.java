@@ -1,5 +1,6 @@
 package com.example.TT_BackEnd.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -21,5 +22,6 @@ public class Document {
 
     @ManyToOne
     @JoinColumn(name = "candidature_id")
+    @JsonIgnore
     private Candidature candidature;
 }

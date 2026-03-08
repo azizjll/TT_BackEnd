@@ -30,10 +30,9 @@ public class CandidatureController {
             @RequestParam Long regionId,
             @RequestParam Long campagneId,
 
-            @RequestPart MultipartFile cinFile,
-            @RequestPart MultipartFile diplome,
-            @RequestPart MultipartFile contrat
-
+            @RequestParam("cinFile") MultipartFile cinFile,   // ← @RequestParam
+            @RequestParam("diplome") MultipartFile diplome,   // ← @RequestParam
+            @RequestParam("contrat") MultipartFile contrat    // ← @RequestParam
     ) throws Exception {
 
         candidatureService.deposerCandidature(
@@ -43,5 +42,67 @@ public class CandidatureController {
         );
 
         return ResponseEntity.ok("Candidature envoyée avec succès");
+    }
+
+    @GetMapping("/mes-candidatures")
+    public ResponseEntity<?> getCandidaturesByRegion(@RequestParam Long regionId) {
+        var candidatures = candidatureService.getCandidaturesByRegion(regionId);
+        return ResponseEntity.ok(candidatures);
+    }
+
+    @GetMapping("/filtrer")
+    public ResponseEntity<?> getCandidaturesByCampagneAndRegion(
+            @RequestParam Long campagneId,
+            @RequestParam Long regionId) {
+
+        var candidatures = candidatureService.getCandidaturesByCampagneAndRegion(campagneId, regionId);
+        return ResponseEntity.ok(candidatures);
+    }
+
+    @GetMapping("/filtrer/count")
+    public ResponseEntity<?> countSaisonnierByCampagneAndRegion(
+            @RequestParam Long campagneId,
+            @RequestParam Long regionId) {
+
+        var candidatures = candidatureService.getCandidaturesByCampagneAndRegion(campagneId, regionId);
+        long count = candidatures.stream()
+                .map(c -> c.getSaisonnier().getId())
+                .distinct()
+                .count();
+
+        return ResponseEntity.ok(count);
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<?> getAllCandidatures() {
+
+        var candidatures = candidatureService.getAllCandidatures();
+
+        return ResponseEntity.ok(candidatures);
+    }
+
+    @PutMapping("/update/{id}")
+    public ResponseEntity<?> updateCandidature(
+
+            @PathVariable Long id,
+
+            @RequestParam String nom,
+            @RequestParam String prenom,
+            @RequestParam Integer cin,
+            @RequestParam String rib,
+            @RequestParam String telephone,
+            @RequestParam String email,
+            @RequestParam Long regionId,
+
+            @RequestParam String statut,
+            @RequestParam(required = false) String commentaire
+    ) {
+
+        var candidature = candidatureService.updateCandidature(
+                id, nom, prenom, cin, rib, telephone, email,
+                regionId, statut, commentaire
+        );
+
+        return ResponseEntity.ok(candidature);
     }
 }

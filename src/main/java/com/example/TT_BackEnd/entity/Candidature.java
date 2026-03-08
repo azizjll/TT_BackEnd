@@ -31,4 +31,5 @@ public class Candidature {
 
     @OneToMany(mappedBy = "candidature", cascade = CascadeType.ALL)
     private List<Document> documents;
+
 }
