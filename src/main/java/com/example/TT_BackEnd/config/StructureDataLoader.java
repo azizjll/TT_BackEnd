@@ -10,9 +10,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Component
-public class StructureDataLoader implements CommandLineRunner {
+public class StructureDataLoader {
 
-    @Autowired
+   /* @Autowired
     private StructureRepository structureRepository;
 
     @Autowired
@@ -213,5 +213,5 @@ public class StructureDataLoader implements CommandLineRunner {
             }
 
         }
-    }
+    }*/
 }

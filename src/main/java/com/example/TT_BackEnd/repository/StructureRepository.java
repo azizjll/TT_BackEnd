@@ -19,4 +19,8 @@ public interface StructureRepository extends JpaRepository<Structure, Long> {
     List<Structure> findByRegionAndType(Region region, StructureType structureType);
 
     List<Structure> findByRegionId(Long regionId);
+
+    boolean existsByNom(String nom);
+
+    Optional<Structure> findByNom(String nom);
 }

@@ -29,6 +29,7 @@ public class CandidatureController {
 
             @RequestParam Long regionId,
             @RequestParam Long campagneId,
+            @RequestParam Long structureId,
 
             @RequestParam("cinFile") MultipartFile cinFile,   // ← @RequestParam
             @RequestParam("diplome") MultipartFile diplome,   // ← @RequestParam
@@ -37,7 +38,7 @@ public class CandidatureController {
 
         candidatureService.deposerCandidature(
                 nom, prenom, cin, rib, telephone, email,
-                regionId, campagneId,
+                regionId, campagneId,  structureId,
                 cinFile, diplome, contrat
         );
 

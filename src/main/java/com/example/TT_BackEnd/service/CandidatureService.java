@@ -19,24 +19,28 @@ public class CandidatureService {
     private final DocumentRepository documentRepo;
     private final CloudinaryService cloudinaryService;
     private final RegionRepository regionRepo;
+    private final StructureRepository structureRepo;
+    private final AffectationRepository affectationRepo;
 
     public CandidatureService(CandidatureRepository candidatureRepo,
                               CampagneRepository campagneRepo,
                               SaisonnierRepository saisonnierRepo,
                               DocumentRepository documentRepo,
-                              CloudinaryService cloudinaryService, RegionRepository regionRepo) {
+                              CloudinaryService cloudinaryService, RegionRepository regionRepo, StructureRepository structureRepo, AffectationRepository affectationRepo) {
         this.candidatureRepo = candidatureRepo;
         this.campagneRepo = campagneRepo;
         this.saisonnierRepo = saisonnierRepo;
         this.documentRepo = documentRepo;
         this.cloudinaryService = cloudinaryService;
         this.regionRepo = regionRepo;
+        this.structureRepo = structureRepo;
+        this.affectationRepo = affectationRepo;
     }
 
     @Transactional
     public void deposerCandidature(String nom, String prenom, Integer cin,
                                    String rib, String telephone, String email,
-                                   Long regionId, Long campagneId,
+                                   Long regionId, Long campagneId, Long structureId,
                                    MultipartFile cinFile,
                                    MultipartFile diplome,
                                    MultipartFile contrat) throws Exception {
@@ -61,6 +65,16 @@ public class CandidatureService {
         c.setSaisonnier(s);
 
         candidatureRepo.save(c);
+
+        Structure structure = structureRepo.findById(structureId)
+                .orElseThrow(() -> new RuntimeException("Structure non trouvée"));
+
+        Affectation affectation = new Affectation();
+        affectation.setStructure(structure);
+        affectation.setCampagne(c.getCampagne());
+        affectation.setSaisonnier(s);
+        affectation.setDateAffectation(LocalDate.now());
+        affectationRepo.save(affectation);
 
         // 3. Upload documents
         saveDoc(c, cinFile, "CIN");
