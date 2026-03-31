@@ -144,4 +144,13 @@ public class CandidatureService {
         return candidatureRepo.save(c);
     }
 
+    public List<Document> getDocumentsBySaisonnier(Long saisonnierId) {
+        return documentRepo.findByCandidatureSaisonnierId(saisonnierId);
+    }
+
+    public Saisonnier getSaisonnierById(Long id) {
+        return saisonnierRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Saisonnier non trouvé"));
+    }
+
 }

@@ -106,4 +106,16 @@ public class CandidatureController {
 
         return ResponseEntity.ok(candidature);
     }
+
+    @GetMapping("/documents")
+    public ResponseEntity<?> getDocumentsBySaisonnier(@RequestParam Long saisonnierId) {
+        var docs = candidatureService.getDocumentsBySaisonnier(saisonnierId);
+        return ResponseEntity.ok(docs);
+    }
+
+    @GetMapping("/saisonnier/{id}")
+    public ResponseEntity<?> getSaisonnier(@PathVariable Long id) {
+        return ResponseEntity.ok(candidatureService.getSaisonnierById(id));
+    }
+
 }
