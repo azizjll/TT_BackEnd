@@ -22,6 +22,12 @@ public class Structure {
 
     private String adresse;
 
+    @Column(columnDefinition = "INT DEFAULT 0")
+    private int autorises;
+
+    @Column(columnDefinition = "INT DEFAULT 0")
+    private int recrutes;
+
     @ManyToOne
     @JoinColumn(name = "region_id")
     @JsonIgnore

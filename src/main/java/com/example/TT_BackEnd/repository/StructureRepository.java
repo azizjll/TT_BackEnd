@@ -23,4 +23,6 @@ public interface StructureRepository extends JpaRepository<Structure, Long> {
     boolean existsByNom(String nom);
 
     Optional<Structure> findByNom(String nom);
+    List<Structure> findAll();
+    Optional<Structure> findByNomAndRegion(String nom, Region region);
 }

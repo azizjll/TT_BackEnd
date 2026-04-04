@@ -12,7 +12,9 @@ import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class ExcelReaderService {
@@ -31,62 +33,79 @@ public class ExcelReaderService {
             Workbook workbook = WorkbookFactory.create(is);
             Sheet sheet = workbook.getSheetAt(0);
 
-            int totalRows = sheet.getPhysicalNumberOfRows();
-            System.out.println("Total de lignes (y compris header) : " + totalRows);
+            // ← NOUVEAU : collecter les noms du fichier Excel
+            Set<String> nomsExcel = new HashSet<>();
 
             for (Row row : sheet) {
-                if (row.getRowNum() == 0) {
-                    System.out.println("Ignorer l'en-tête");
-                    continue;
-                }
+                if (row.getRowNum() == 0) continue;
 
-                String regionNom = row.getCell(0).getStringCellValue().trim();
-                String structureNom = row.getCell(1).getStringCellValue().trim();
-                String type = row.getCell(2).getStringCellValue().trim();
-                String adresse = row.getCell(3).getStringCellValue().trim();
+                String regionNom    = getCellString(row, 0);
+                String structureNom = getCellString(row, 1);
+                String type         = getCellString(row, 2).trim().toUpperCase();
+                String adresse      = getCellString(row, 3);
+                int autorises       = getCellInt(row, 4);
+                int recrutes        = getCellInt(row, 5);
 
-                System.out.println("Ligne " + row.getRowNum() + " : "
-                        + regionNom + " | " + structureNom + " | " + type + " | " + adresse);
+                if (regionNom.isBlank() || structureNom.isBlank()) continue;
 
                 Region region = regionRepository.findByNom(regionNom).orElse(null);
                 if (region == null) {
-                    System.out.println("⚠ Région non trouvée : " + regionNom + " (ligne " + row.getRowNum() + ")");
+                    System.out.println("⚠ Région non trouvée : " + regionNom);
                     continue;
                 }
 
+                nomsExcel.add(structureNom); // ← tracker les noms présents
+
+                // ← chercher par NOM + RÉGION (pas juste nom)
+                Structure structure = structureRepository
+                        .findByNomAndRegion(structureNom, region)
+                        .orElse(new Structure());
+
+                structure.setNom(structureNom);
+                structure.setAdresse(adresse);
+                structure.setRegion(region);
+                structure.setAutorises(autorises);
+                structure.setRecrutes(recrutes);
+
                 try {
-                    Optional<Structure> existingStructure = structureRepository.findByNom(structureNom);
-
-                    if (existingStructure.isPresent()) {
-                        // Mise à jour si la structure existe déjà
-                        Structure structureToUpdate = existingStructure.get();
-                        structureToUpdate.setAdresse(adresse);
-                        structureToUpdate.setRegion(region);
-                        structureToUpdate.setType(StructureType.valueOf(type));
-                        structureRepository.save(structureToUpdate);
-                        System.out.println("🔄 Mise à jour : " + structureNom + " (ligne " + row.getRowNum() + ")");
-                    } else {
-                        // Nouvelle insertion
-                        Structure newStructure = new Structure();
-                        newStructure.setNom(structureNom);
-                        newStructure.setAdresse(adresse);
-                        newStructure.setRegion(region);
-                        newStructure.setType(StructureType.valueOf(type));
-                        structureRepository.save(newStructure);
-                        System.out.println("➕ Nouvelle insertion : " + structureNom + " (ligne " + row.getRowNum() + ")");
-                    }
-
+                    structure.setType(StructureType.valueOf(type));
                 } catch (IllegalArgumentException e) {
-                    System.out.println("❌ Type invalide pour Structure : " + type + " (ligne " + row.getRowNum() + ")");
+                    System.out.println("❌ Type invalide : " + type);
+                    continue;
                 }
+
+                structureRepository.save(structure);
+                System.out.println("✅ Sauvegardé : " + structureNom);
             }
 
             workbook.close();
-            System.out.println("✅ Import terminé");
+            System.out.println("✅ Import terminé — " + nomsExcel.size() + " structures traitées");
 
         } catch (Exception e) {
             e.printStackTrace();
-            System.out.println("❌ Erreur lors de l'import Excel");
         }
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────
+
+    private String getCellString(Row row, int col) {
+        if (row.getCell(col) == null) return "";
+        return switch (row.getCell(col).getCellType()) {
+            case STRING  -> row.getCell(col).getStringCellValue().trim();
+            case NUMERIC -> String.valueOf((int) row.getCell(col).getNumericCellValue());
+            default      -> "";
+        };
+    }
+
+    private int getCellInt(Row row, int col) {
+        if (row.getCell(col) == null) return 0;
+        return switch (row.getCell(col).getCellType()) {
+            case NUMERIC -> (int) row.getCell(col).getNumericCellValue();
+            case STRING  -> {
+                try { yield Integer.parseInt(row.getCell(col).getStringCellValue().trim()); }
+                catch (NumberFormatException e) { yield 0; }
+            }
+            default -> 0;
+        };
     }
 }
