@@ -10,6 +10,13 @@ public class StructureDTO {
     private Integer autorises;
     private Integer recrutes;
 
+
+    public boolean isDisponible() {
+        if (autorises == null || recrutes == null) return true;
+        return recrutes < autorises;
+    }
+
+
     // Constructeur vide (obligatoire pour Jackson)
     public StructureDTO() {
     }

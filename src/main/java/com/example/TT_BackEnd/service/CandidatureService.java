@@ -69,11 +69,24 @@ public class CandidatureService {
         Structure structure = structureRepo.findById(structureId)
                 .orElseThrow(() -> new RuntimeException("Structure non trouvée"));
 
+        // Utiliser autorises comme quota max
+        long nbCandidatures = affectationRepo
+                .countByStructureIdAndCampagneId(structureId, campagneId);
+
+        if (nbCandidatures >= structure.getAutorises()) {
+            throw new RuntimeException(
+                    "Quota atteint pour cette structure ("
+                            + structure.getAutorises() + " candidats max)"
+            );
+        }
+
         Affectation affectation = new Affectation();
         affectation.setStructure(structure);
         affectation.setCampagne(c.getCampagne());
         affectation.setSaisonnier(s);
         affectation.setDateAffectation(LocalDate.now());
+        // Incrémenter recrutes automatiquement
+        structure.setRecrutes(structure.getRecrutes() + 1);
         affectationRepo.save(affectation);
 
         // 3. Upload documents

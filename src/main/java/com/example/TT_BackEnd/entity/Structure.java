@@ -22,8 +22,8 @@ public class Structure {
 
     private String adresse;
 
-    @Column(columnDefinition = "INT DEFAULT 0")
-    private int autorises;
+    @Column(columnDefinition = "INT DEFAULT 3")
+    private int autorises = 3;
 
     @Column(columnDefinition = "INT DEFAULT 0")
     private int recrutes;
