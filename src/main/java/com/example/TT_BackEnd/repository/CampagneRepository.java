@@ -18,4 +18,11 @@ public interface CampagneRepository extends JpaRepository<Campagne, Long> {
 
     // Recherche pour plusieurs régions
     List<Campagne> findByRegions_IdIn(List<Long> regionIds);
+    List<Campagne> findByCreateurEmail(String email);
+    List<Campagne> findByCreateurEmailAndStatut(String email, StatutCampagne statut);
+
+    List<Campagne> findByStatutAndCreateurId(StatutCampagne statut, Long createurId);
+
+
+
 }

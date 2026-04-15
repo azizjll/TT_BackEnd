@@ -7,10 +7,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Autowired;
 import java.util.List;
 
-@Component
-public class RegionDataLoader implements CommandLineRunner {
 
-    @Autowired
+public abstract class RegionDataLoader implements CommandLineRunner {
+
+   /* @Autowired
     private RegionRepository regionRepository;
 
     @Override
@@ -28,5 +28,5 @@ public class RegionDataLoader implements CommandLineRunner {
             );
             gouvernorats.forEach(nom -> regionRepository.save(new Region(nom)));
         }
-    }
+    }*/
 }

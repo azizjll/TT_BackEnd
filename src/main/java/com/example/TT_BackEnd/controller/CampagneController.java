@@ -2,10 +2,15 @@ package com.example.TT_BackEnd.controller;
 
 import com.example.TT_BackEnd.dto.CampagneRequestDTO;
 import com.example.TT_BackEnd.entity.Campagne;
+import com.example.TT_BackEnd.entity.Structure;
 import com.example.TT_BackEnd.service.CampagneService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -21,11 +26,25 @@ public class CampagneController {
     // CREATE
     // =========================
     @PostMapping
-
-    public Campagne creerCampagne(@RequestBody CampagneRequestDTO dto) {
-        return campagneService.creerCampagne(dto);
+    @PreAuthorize("hasRole('ADMIN')")
+    public Campagne creerCampagne(
+            @RequestBody CampagneRequestDTO dto,
+            @AuthenticationPrincipal UserDetails userDetails) {  // ← injecter l'utilisateur connecté
+        return campagneService.creerCampagne(dto, userDetails.getUsername());
     }
 
+    @PostMapping(value = "/avec-excel", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('ADMIN')")
+    public Campagne creerCampagneAvecExcel(
+            @RequestPart("campagne") CampagneRequestDTO dto,
+            @RequestPart("fichier") MultipartFile fichierExcel,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        System.out.println("=== UserDetails: " + userDetails); // ← vérifier
+        System.out.println("=== Username: " + (userDetails != null ? userDetails.getUsername() : "NULL"));
+
+        return campagneService.creerCampagneAvecExcel(dto, fichierExcel, userDetails.getUsername());
+    }
     // =========================
     // READ
     // =========================
@@ -79,4 +98,12 @@ public class CampagneController {
     public Campagne cloturerCampagne(@PathVariable Long id) {
         return campagneService.cloturerCampagne(id);
     }
+
+    @GetMapping("/mes-campagnes")
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<Campagne> getMesCampagnes(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return campagneService.getCampagnesParCreateur(userDetails.getUsername());
+    }
+
 }

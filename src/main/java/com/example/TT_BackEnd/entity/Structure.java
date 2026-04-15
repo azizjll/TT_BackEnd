@@ -23,7 +23,7 @@ public class Structure {
     private String adresse;
 
     @Column(columnDefinition = "INT DEFAULT 3")
-    private int autorises = 3;
+    private int autorises ;
 
     @Column(columnDefinition = "INT DEFAULT 0")
     private int recrutes;
@@ -36,6 +36,10 @@ public class Structure {
     @OneToMany(mappedBy = "structure")
     @JsonIgnore
     private List<Affectation> affectations;
+    @ManyToOne                          // ← NOUVEAU
+    @JoinColumn(name = "campagne_id")   // ← NOUVEAU
+    @JsonIgnore                         // ← NOUVEAU
+    private Campagne campagne;
 
     // constructeur vide obligatoire
     public Structure() {}

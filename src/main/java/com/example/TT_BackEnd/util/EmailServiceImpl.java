@@ -36,4 +36,31 @@ public class EmailServiceImpl {
         mailMessage.setText(message);
         mailSender.send(mailMessage);
     }
+
+    public void sendSaisonnierWelcomeEmail(String to, String nom,
+                                           String motDePasse, String token) {
+        String lienVerification = "http://localhost:8080/verify?token=" + token;
+
+        String contenu = """
+        Bonjour %s,
+        
+        Votre candidature a été soumise avec succès.
+        
+        Voici vos identifiants de connexion :
+        📧 Email : %s
+        🔑 Mot de passe temporaire : %s
+        
+        Veuillez vérifier votre compte en cliquant sur ce lien :
+        %s
+        
+        Ce lien expire dans 24h.
+        """.formatted(nom, to, motDePasse, lienVerification);
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("azizchahlaoui7@gmail.com");
+        message.setTo(to);
+        message.setSubject("Bienvenue — Activation de votre compte saisonnier");
+        message.setText(contenu);
+        mailSender.send(message);
+    }
 }

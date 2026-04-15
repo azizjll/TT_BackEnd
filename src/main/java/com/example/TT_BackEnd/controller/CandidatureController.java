@@ -27,6 +27,14 @@ public class CandidatureController {
             @RequestParam String telephone,
             @RequestParam String email,
 
+            // ✅ nouveaux champs
+            @RequestParam String nomPrenomParent,
+            @RequestParam String matriculeParent,
+            @RequestParam String niveauEtude,
+            @RequestParam String diplomeNom,
+            @RequestParam String specialiteDiplome,
+
+
             @RequestParam Long regionId,
             @RequestParam Long campagneId,
             @RequestParam Long structureId,
@@ -38,6 +46,9 @@ public class CandidatureController {
 
         candidatureService.deposerCandidature(
                 nom, prenom, cin, rib, telephone, email,
+                // ✅ passer les nouveaux champs
+                nomPrenomParent, matriculeParent,
+                niveauEtude, diplomeNom, specialiteDiplome,
                 regionId, campagneId,  structureId,
                 cinFile, diplome, contrat
         );

@@ -1,13 +1,14 @@
 package com.example.TT_BackEnd.service;
 
 import com.example.TT_BackEnd.dto.CampagneRequestDTO;
-import com.example.TT_BackEnd.entity.Campagne;
-import com.example.TT_BackEnd.entity.Region;
-import com.example.TT_BackEnd.entity.StatutCampagne;
+import com.example.TT_BackEnd.entity.*;
 import com.example.TT_BackEnd.repository.CampagneRepository;
 import com.example.TT_BackEnd.repository.RegionRepository;
+import com.example.TT_BackEnd.repository.StructureRepository;
+import com.example.TT_BackEnd.repository.UtilisateurRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -17,15 +18,23 @@ public class CampagneService {
 
     private final CampagneRepository campagneRepository;
     private final RegionRepository regionRepository;
+    private final ExcelCampagneParser excelCampagneParser;
+    private final UtilisateurRepository utilisateurRepository;
+    private final StructureRepository structureRepository; // ← AJOUTER
+
+
+
 
     // ====================
     // CREATE
     // ====================
-    public Campagne creerCampagne(CampagneRequestDTO dto) {
+    public Campagne creerCampagne(CampagneRequestDTO dto, String emailCreateur) {
+        // Récupérer l'utilisateur connecté
+        Utilisateur createur = utilisateurRepository.findByEmail(emailCreateur)
+                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
+
         List<Region> regions = regionRepository.findAllById(dto.getRegionIds());
-        if (regions.isEmpty()) {
-            throw new RuntimeException("Aucune région trouvée avec les IDs fournis");
-        }
+        if (regions.isEmpty()) throw new RuntimeException("Aucune région trouvée");
 
         Campagne campagne = new Campagne();
         campagne.setLibelle(dto.getLibelle());
@@ -36,10 +45,46 @@ public class CampagneService {
         campagne.setCode(dto.getCode());
         campagne.setRegions(regions);
         campagne.setStatut(StatutCampagne.BROUILLON);
+        campagne.setCreateur(createur);   // ← association
 
         return campagneRepository.save(campagne);
     }
 
+    /**
+     * Crée une campagne et l'affecte automatiquement aux régions extraites du fichier Excel.
+     */
+    public Campagne creerCampagneAvecExcel(CampagneRequestDTO dto, MultipartFile fichierExcel, String emailCreateur) {
+
+        Utilisateur createur = utilisateurRepository.findByEmail(emailCreateur)
+                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable : " + emailCreateur));
+
+        // 1. Extraire les régions
+        List<Region> regions = excelCampagneParser.extraireRegions(fichierExcel);
+        if (regions.isEmpty()) throw new RuntimeException("Aucune région valide");
+
+        // 2. Créer et sauvegarder la campagne
+        Campagne campagne = new Campagne();
+        campagne.setLibelle(dto.getLibelle());
+        campagne.setDateDebut(dto.getDateDebut());
+        campagne.setDateFin(dto.getDateFin());
+        campagne.setBudget(dto.getBudget());
+        campagne.setDescription(dto.getDescription());
+        campagne.setCode(dto.getCode());
+        campagne.setRegions(regions);
+        campagne.setStatut(StatutCampagne.BROUILLON);
+        campagne.setCreateur(createur);
+
+        Campagne campagneSauvee = campagneRepository.save(campagne); // ← sauvegarder d'abord
+
+        // 3. Extraire les structures et les lier à la campagne
+        List<Structure> structures = excelCampagneParser.extraireStructures(fichierExcel);
+        structures.forEach(s -> s.setCampagne(campagneSauvee)); // ← associer la campagne
+        structureRepository.saveAll(structures); // ← sauvegarder avec campagne_id
+
+        System.out.println("=== " + structures.size() + " structures sauvées pour campagne ID: " + campagneSauvee.getId());
+
+        return campagneSauvee;
+    }    // ====================
     // ====================
     // READ
     // ====================
@@ -106,5 +151,9 @@ public class CampagneService {
         }
         campagne.setStatut(StatutCampagne.CLOTUREE);
         return campagneRepository.save(campagne);
+    }
+
+    public List<Campagne> getCampagnesParCreateur(String email) {
+        return campagneRepository.findByCreateurEmail(email);
     }
 }

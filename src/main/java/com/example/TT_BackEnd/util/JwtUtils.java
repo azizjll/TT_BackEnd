@@ -27,15 +27,29 @@ public class JwtUtils {
 
     // Génération du token AVEC ROLE
     public String generateToken(UserDetails userDetails) {
-
         List<String> roles = userDetails.getAuthorities()
                 .stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toList());
 
+        // Récupérer l'utilisateur depuis le UserDetails custom
+        // On cast vers notre UserDetails custom (voir étape 2)
+        String nom = "";
+        String prenom = "";
+        String role = roles.isEmpty() ? "" : roles.get(0);
+
+        if (userDetails instanceof CustomUserDetails) {
+            CustomUserDetails custom = (CustomUserDetails) userDetails;
+            nom = custom.getNom();
+            prenom = custom.getPrenom();
+        }
+
         return Jwts.builder()
                 .setSubject(userDetails.getUsername())
-                .claim("roles", roles) // 👈 ajout des rôles
+                .claim("roles", roles)
+                .claim("nom", nom)       // 👈 ajout
+                .claim("prenom", prenom) // 👈 ajout
+                .claim("role", role)     // 👈 ajout (ex: "ROLE_ADMIN")
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS512)

@@ -3,6 +3,7 @@ package com.example.TT_BackEnd.service;
 
 import com.example.TT_BackEnd.entity.Utilisateur;
 import com.example.TT_BackEnd.repository.UtilisateurRepository;
+import com.example.TT_BackEnd.util.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -21,11 +22,6 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         Utilisateur utilisateur = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé : " + email));
 
-        return User.builder()
-                .username(utilisateur.getEmail())
-                .password(utilisateur.getPassword())
-                .disabled(!utilisateur.getEnabled())
-                .authorities("ROLE_" + utilisateur.getRole().name()) // 👈 IMPORTANT
-                .build();
+        return new CustomUserDetails(utilisateur);
     }
 }

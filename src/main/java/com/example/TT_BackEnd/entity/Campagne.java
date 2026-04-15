@@ -34,4 +34,8 @@ public class Campagne {
             inverseJoinColumns = @JoinColumn(name = "region_id")
     )
     private List<Region> regions;
+
+    @ManyToOne
+    @JoinColumn(name = "createur_id")
+    private Utilisateur createur;
 }

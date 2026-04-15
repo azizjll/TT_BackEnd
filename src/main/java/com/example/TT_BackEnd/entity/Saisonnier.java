@@ -26,6 +26,12 @@ public class Saisonnier {
     private String telephone;
     private String email;
 
+    private String nomPrenomParent;
+    private String matriculeParent;
+    private String niveauEtude;
+    private String diplome;
+    private String specialiteDiplome;
+
     @ManyToOne
     @JoinColumn(name = "region_id")
     private Region region;
