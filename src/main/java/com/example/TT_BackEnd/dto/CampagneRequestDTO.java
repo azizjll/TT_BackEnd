@@ -18,4 +18,5 @@ public class CampagneRequestDTO {
     private String description;
     private String code;
     private List<Long> regionIds;
+    private String statut;
 }

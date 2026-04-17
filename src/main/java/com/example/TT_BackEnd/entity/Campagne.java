@@ -38,4 +38,7 @@ public class Campagne {
     @ManyToOne
     @JoinColumn(name = "createur_id")
     private Utilisateur createur;
+
+    @OneToMany(mappedBy = "campagne", cascade = CascadeType.ALL)
+    private List<DocumentCampagne> documents;
 }

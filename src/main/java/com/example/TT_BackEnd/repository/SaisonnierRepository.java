@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface SaisonnierRepository extends JpaRepository<Saisonnier, Long> {
 
@@ -19,5 +20,8 @@ public interface SaisonnierRepository extends JpaRepository<Saisonnier, Long> {
             @Param("region") Region region,
             @Param("statut") StatutCandidature statut
     );
+
+    Optional<Saisonnier> findByCin(Integer cin);
+
 
 }

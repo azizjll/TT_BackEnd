@@ -44,4 +44,10 @@ public class Utilisateur {
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     @JsonIgnore
     private PasswordResetToken passwordResetToken;
+
+    // Dans Utilisateur.java — ajouter :
+    @OneToOne
+    @JoinColumn(name = "saisonnier_id")
+    @JsonIgnore
+    private Saisonnier saisonnier;
 }

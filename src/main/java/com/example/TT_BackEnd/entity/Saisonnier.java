@@ -41,6 +41,11 @@ public class Saisonnier {
     @JsonIgnore
     private List<Candidature> candidatures;
 
+    // Dans Saisonnier.java — ajouter le lien inverse (optionnel) :
+    @OneToOne(mappedBy = "saisonnier")
+    @JsonIgnore
+    private Utilisateur utilisateur;
+
     public Saisonnier() {}
 
 }

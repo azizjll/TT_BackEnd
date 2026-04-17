@@ -115,6 +115,15 @@ public class CampagneService {
         if (dto.getDescription() != null) campagne.setDescription(dto.getDescription());
         if (dto.getCode() != null) campagne.setCode(dto.getCode());
 
+        // ← AJOUTER : mise à jour du statut
+        if (dto.getStatut() != null) {
+            try {
+                campagne.setStatut(StatutCampagne.valueOf(dto.getStatut().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                throw new RuntimeException("Statut invalide : " + dto.getStatut());
+            }
+        }
+
         if (dto.getRegionIds() != null && !dto.getRegionIds().isEmpty()) {
             List<Region> regions = regionRepository.findAllById(dto.getRegionIds());
             campagne.setRegions(regions);

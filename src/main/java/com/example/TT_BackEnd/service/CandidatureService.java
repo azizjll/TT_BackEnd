@@ -59,25 +59,46 @@ public class CandidatureService {
                                    MultipartFile cinFile, MultipartFile diplome,
                                    MultipartFile contrat) throws Exception {
 
-        // ── 1. Créer Saisonnier (entité métier) ──────────────────────
-        Saisonnier s = new Saisonnier();
-        s.setNom(nom);
-        s.setPrenom(prenom);
-        s.setCin(cin);
-        s.setRib(rib);
-        s.setTelephone(telephone);
-        s.setEmail(email);
-        s.setNomPrenomParent(nomPrenomParent);
-        s.setMatriculeParent(matriculeParent);
-        s.setNiveauEtude(niveauEtude);
-        s.setDiplome(diplomeNom);
-        s.setSpecialiteDiplome(specialiteDiplome);
-        s.setRegion(regionRepo.findById(regionId)
-                .orElseThrow(() -> new RuntimeException("Région non trouvée")));
-        saisonnierRepo.save(s);
+        // ── 1. Vérifier ou créer Saisonnier ─────────────────────────────
+        Saisonnier s = saisonnierRepo.findByCin(cin).orElse(null);
 
-        // ── 2. Créer Utilisateur avec role SAISONNIER ─────────────────
+        if (s == null) {
+            // 🔹 nouveau saisonnier
+            s = new Saisonnier();
+            s.setNom(nom);
+            s.setPrenom(prenom);
+            s.setCin(cin);
+            s.setRib(rib);
+            s.setTelephone(telephone);
+            s.setEmail(email);
+            s.setNomPrenomParent(nomPrenomParent);
+            s.setMatriculeParent(matriculeParent);
+            s.setNiveauEtude(niveauEtude);
+            s.setDiplome(diplomeNom);
+            s.setSpecialiteDiplome(specialiteDiplome);
+            s.setRegion(regionRepo.findById(regionId)
+                    .orElseThrow(() -> new RuntimeException("Région non trouvée")));
+
+            saisonnierRepo.save(s);
+
+        } else {
+            // 🔹 saisonnier existe → mise à jour légère (optionnel)
+            s.setTelephone(telephone);
+            s.setEmail(email);
+            saisonnierRepo.save(s);
+        }
+
+        // ── 2. Empêcher double candidature dans même campagne ───────────
+        boolean dejaPostule = candidatureRepo
+                .existsBySaisonnierIdAndCampagneId(s.getId(), campagneId);
+
+        if (dejaPostule) {
+            throw new RuntimeException("Vous avez déjà postulé à cette campagne");
+        }
+
+        // ── 3. Créer Utilisateur si n'existe pas ────────────────────────
         boolean utilisateurExiste = utilisateurRepo.findByEmail(email).isPresent();
+
         if (!utilisateurExiste) {
             String motDePasseTemp = UUID.randomUUID().toString().substring(0, 8);
 
@@ -88,18 +109,17 @@ public class CandidatureService {
             utilisateur.setTelephone(telephone);
             utilisateur.setRole(RoleType.SAISONNIER);
             utilisateur.setPassword(passwordEncoder.encode(motDePasseTemp));
-            utilisateur.setEnabled(false); // activé après vérification email
+            utilisateur.setEnabled(false);
             utilisateur.setRegion(s.getRegion());
+            utilisateur.setSaisonnier(s);
             utilisateurRepo.save(utilisateur);
 
-            // ── 3. Token de vérification ──────────────────────────────
             VerificationToken token = new VerificationToken();
             token.setToken(UUID.randomUUID().toString());
             token.setUser(utilisateur);
             token.setExpiryDate(LocalDateTime.now().plusDays(1));
             verificationTokenRepo.save(token);
 
-            // ── 4. Email avec mot de passe temporaire + lien vérif ────
             emailService.sendSaisonnierWelcomeEmail(
                     email,
                     prenom + " " + nom,
@@ -108,16 +128,17 @@ public class CandidatureService {
             );
         }
 
-        // ── 5. Créer Candidature ──────────────────────────────────────
+        // ── 4. Créer Candidature ───────────────────────────────────────
         Candidature c = new Candidature();
         c.setDateDepot(LocalDate.now());
         c.setStatut(StatutCandidature.EN_ATTENTE);
         c.setCampagne(campagneRepo.findById(campagneId)
                 .orElseThrow(() -> new RuntimeException("Campagne non trouvée")));
         c.setSaisonnier(s);
+
         candidatureRepo.save(c);
 
-        // ── 6. Vérifier quota structure ───────────────────────────────
+        // ── 5. Vérifier quota structure ────────────────────────────────
         Structure structure = structureRepo.findById(structureId)
                 .orElseThrow(() -> new RuntimeException("Structure non trouvée"));
 
@@ -129,19 +150,26 @@ public class CandidatureService {
                     + structure.getAutorises() + " candidats max)");
         }
 
+        // ── 6. Affectation ─────────────────────────────────────────────
         Affectation affectation = new Affectation();
         affectation.setStructure(structure);
         affectation.setCampagne(c.getCampagne());
         affectation.setSaisonnier(s);
         affectation.setDateAffectation(LocalDate.now());
+
         structure.setRecrutes(structure.getRecrutes() + 1);
+
         affectationRepo.save(affectation);
 
-        // ── 7. Upload documents ───────────────────────────────────────
+        // ── 7. Upload documents ────────────────────────────────────────
         saveDoc(c, cinFile, "CIN");
         saveDoc(c, diplome, "DIPLOME");
         saveDoc(c, contrat, "CONTRAT");
     }
+
+
+
+
     private void saveDoc(Candidature c, MultipartFile file, String type) throws Exception {
 
         String url = cloudinaryService.uploadFile(file, "candidatures/" + c.getId());
@@ -212,6 +240,18 @@ public class CandidatureService {
     public Saisonnier getSaisonnierById(Long id) {
         return saisonnierRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Saisonnier non trouvé"));
+    }
+
+    public List<Candidature> getHistoriqueCandidatures(String email) {
+        Utilisateur utilisateur = utilisateurRepo.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        Saisonnier saisonnier = utilisateur.getSaisonnier();
+        if (saisonnier == null) {
+            return List.of(); // pas encore de candidature
+        }
+
+        return candidatureRepo.findBySaisonnierId(saisonnier.getId());
     }
 
 }

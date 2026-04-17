@@ -8,4 +8,7 @@ import java.util.List;
 public interface CandidatureRepository extends JpaRepository<Candidature, Long> {
     List<Candidature> findBySaisonnierRegionId(Long regionId);
     List<Candidature> findByCampagneIdAndSaisonnierRegionId(Long campagneId, Long regionId);
+    List<Candidature> findBySaisonnierId(Long saisonnierIdId);
+    boolean existsBySaisonnierIdAndCampagneId(Long saisonnierId, Long campagneId);
+
 }
