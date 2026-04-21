@@ -62,4 +62,6 @@ public class StructureService {
         Long campagneActiveId = campagnesActives.get(0).getId();
         return structureRepository.findByCampagneId(campagneActiveId);
     }
+
+
 }

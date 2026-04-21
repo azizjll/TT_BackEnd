@@ -22,8 +22,9 @@ public class EmailServiceImpl {
 
     public void sendPasswordResetEmail(String to, String token) {
         String subject = "Réinitialisation du mot de passe";
-        String message = "Cliquez sur ce lien pour réinitialiser votre mot de passe : "
-                + "http://localhost:4200/login?token=" + token;
+        String message = "Réinitialisation du mot de passe\n\n"
+                + "Lien : http://localhost:4200/reset-password?token=" + token + "\n\n"
+                + "Ou utilisez ce code : " + token;
 
         sendEmail(to, subject, message);
     }
@@ -39,16 +40,16 @@ public class EmailServiceImpl {
 
     public void sendSaisonnierWelcomeEmail(String to, String nom,
                                            String motDePasse, String token) {
-        String lienVerification = "http://localhost:8080/verify?token=" + token;
+        String lienVerification = "http://localhost:8080/auth/verify?token=" + token;
 
         String contenu = """
         Bonjour %s,
         
-        Votre candidature a été soumise avec succès.
+        Votre candidature a été envoyée avec succès.
         
         Voici vos identifiants de connexion :
         📧 Email : %s
-        🔑 Mot de passe temporaire : %s
+        🔑 Mot de passe  : %s
         
         Veuillez vérifier votre compte en cliquant sur ce lien :
         %s

@@ -35,6 +35,7 @@ public class CandidatureController {
             @RequestParam String niveauEtude,
             @RequestParam String diplomeNom,
             @RequestParam String specialiteDiplome,
+            @RequestParam String moisTravail,
 
             @RequestParam Long regionId,
             @RequestParam Long campagneId,
@@ -42,35 +43,61 @@ public class CandidatureController {
 
             @RequestParam("cinFile") MultipartFile cinFile,
             @RequestParam("diplome") MultipartFile diplome,
-            @RequestParam("contrat") MultipartFile contrat
+            @RequestParam("contrat") MultipartFile contrat,
+            @RequestParam("ribFile") MultipartFile ribFile
     ) {
 
         try {
+
+            // 🔥 Trim pour éviter erreurs espaces
             candidatureService.deposerCandidature(
-                    nom, prenom, cin, rib, telephone, email,
-                    nomPrenomParent, matriculeParent,
-                    niveauEtude, diplomeNom, specialiteDiplome,
-                    regionId, campagneId, structureId,
-                    cinFile, diplome, contrat
+                    nom.trim(),
+                    prenom.trim(),
+                    cin,
+                    rib.trim(),
+                    telephone.trim(),
+                    email.trim(),
+
+                    nomPrenomParent.trim(),
+                    matriculeParent.trim(),
+
+                    niveauEtude.trim(),
+                    diplomeNom.trim(),
+                    specialiteDiplome.trim(),
+                    moisTravail.trim(),
+
+                    regionId,
+                    campagneId,
+                    structureId,
+
+                    cinFile,
+                    diplome,
+                    contrat,
+                    ribFile
             );
 
-            return ResponseEntity.ok().body(
-                    java.util.Map.of(
-                            "message",
-                            "Votre candidature a été envoyée avec succès. Un email contenant vos identifiants (email et mot de passe) vous a été envoyé. Veuillez consulter votre boîte mail pour accéder à votre compte."
-                    )
-            );
+            return ResponseEntity.ok().body( java.util.Map.of( "message", "Votre candidature a été envoyée avec succès. Un email contenant vos identifiants (email et mot de passe) vous a été envoyé. Veuillez consulter votre boîte mail pour accéder à votre compte." ) );
 
         } catch (RuntimeException e) {
 
+            // 🔥 erreurs métier (parent, quota, déjà candidat…)
             return ResponseEntity.badRequest().body(
-                    java.util.Map.of("message", e.getMessage())
+                    java.util.Map.of(
+                            "success", false,
+                            "message", e.getMessage()
+                    )
             );
 
         } catch (Exception e) {
 
+            // 🔥 log backend (important)
+            e.printStackTrace();
+
             return ResponseEntity.status(500).body(
-                    java.util.Map.of("message", "Erreur serveur")
+                    java.util.Map.of(
+                            "success", false,
+                            "message", "Erreur serveur ❌"
+                    )
             );
         }
     }
@@ -160,6 +187,41 @@ public class CandidatureController {
 
         var candidatures = candidatureService.getHistoriqueCandidatures(email);
         return ResponseEntity.ok(candidatures);
+    }
+
+    @PostMapping("/upload-parents")
+    public ResponseEntity<String> uploadParents(@RequestParam("file") MultipartFile file) {
+        try {
+            candidatureService.uploadParentsExcel(file);
+            return ResponseEntity.ok("Upload réussi ✅");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Erreur ❌ " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/mes-documents")
+    public ResponseEntity<?> getMesDocuments(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body("Non authentifié");
+        }
+        String email = authentication.getName();
+        var docs = candidatureService.getDocumentsByEmail(email);
+        return ResponseEntity.ok(docs);
+    }
+
+
+    @GetMapping("/mon-profil")
+    public ResponseEntity<?> getMonProfil(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body("Non authentifié");
+        }
+        String email = authentication.getName();
+        return ResponseEntity.ok(candidatureService.getProfilByEmail(email));
+    }
+
+    @GetMapping("/{id}/structure")
+    public ResponseEntity<?> getStructureByCandidature(@PathVariable Long id) {
+        return ResponseEntity.ok(candidatureService.getStructureByCandidatureId(id));
     }
 
 }

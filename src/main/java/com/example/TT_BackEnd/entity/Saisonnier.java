@@ -32,6 +32,9 @@ public class Saisonnier {
     private String diplome;
     private String specialiteDiplome;
 
+    private String moisTravail; //
+
+
     @ManyToOne
     @JoinColumn(name = "region_id")
     private Region region;

@@ -10,6 +10,7 @@ import com.example.TT_BackEnd.service.AuthService;
 import com.example.TT_BackEnd.util.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
@@ -17,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@RestController
+@Controller
 @RequestMapping("/auth")
 @RequiredArgsConstructor
 @CrossOrigin("*")
@@ -28,12 +29,15 @@ public class AuthController {
     private final JwtUtils jwtUtils;
 
 
+
     @GetMapping("/regions")
-    public List<RegionDTO> getRegions() {
-        return regionRepository.findAll()
-                .stream()
-                .map(r -> new RegionDTO(r.getId(), r.getNom()))
-                .toList();
+    public ResponseEntity<List<RegionDTO>> getRegions() {
+        return ResponseEntity.ok(
+                regionRepository.findAll()
+                        .stream()
+                        .map(r -> new RegionDTO(r.getId(), r.getNom()))
+                        .toList()
+        );
     }
     @GetMapping("/roles")
     public List<String> getRoles() {
@@ -52,9 +56,9 @@ public class AuthController {
     }
 
     @GetMapping("/verify")
-    public ResponseEntity<?> verify(@RequestParam String token) {
+    public String verify(@RequestParam String token) {
         authService.verifyToken(token);
-        return ResponseEntity.ok("Compte activé !");
+        return "verification-success"; // nom du fichier HTML (sans .html)
     }
 
     @PostMapping("/signin")

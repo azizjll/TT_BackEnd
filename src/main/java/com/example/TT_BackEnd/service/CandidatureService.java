@@ -4,6 +4,10 @@ import com.example.TT_BackEnd.entity.*;
 import com.example.TT_BackEnd.repository.*;
 import com.example.TT_BackEnd.util.EmailServiceImpl;
 import jakarta.transaction.Transactional;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -11,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -29,12 +34,13 @@ public class CandidatureService {
     private final PasswordEncoder passwordEncoder;
     private final VerificationTokenRepository verificationTokenRepo;
     private final EmailServiceImpl emailService;
+    private final ParentAutoriseRepository parentRepo;
 
     public CandidatureService(CandidatureRepository candidatureRepo,
                               CampagneRepository campagneRepo,
                               SaisonnierRepository saisonnierRepo,
                               DocumentRepository documentRepo,
-                              CloudinaryService cloudinaryService, RegionRepository regionRepo, StructureRepository structureRepo, AffectationRepository affectationRepo, UtilisateurRepository utilisateurRepo, PasswordEncoder passwordEncoder, VerificationTokenRepository verificationTokenRepo, EmailServiceImpl emailService) {
+                              CloudinaryService cloudinaryService, RegionRepository regionRepo, StructureRepository structureRepo, AffectationRepository affectationRepo, UtilisateurRepository utilisateurRepo, PasswordEncoder passwordEncoder, VerificationTokenRepository verificationTokenRepo, EmailServiceImpl emailService, ParentAutoriseRepository parentRepo) {
         this.candidatureRepo = candidatureRepo;
         this.campagneRepo = campagneRepo;
         this.saisonnierRepo = saisonnierRepo;
@@ -47,6 +53,7 @@ public class CandidatureService {
         this.passwordEncoder = passwordEncoder;
         this.verificationTokenRepo = verificationTokenRepo;
         this.emailService = emailService;
+        this.parentRepo = parentRepo;
     }
 
     @Transactional
@@ -55,15 +62,24 @@ public class CandidatureService {
                                    String nomPrenomParent, String matriculeParent,
                                    String niveauEtude, String diplomeNom,
                                    String specialiteDiplome,
+                                   String moisTravail,
                                    Long regionId, Long campagneId, Long structureId,
                                    MultipartFile cinFile, MultipartFile diplome,
-                                   MultipartFile contrat) throws Exception {
+                                   MultipartFile contrat, MultipartFile ribFile) throws Exception {
 
-        // ── 1. Vérifier ou créer Saisonnier ─────────────────────────────
+        // ── 0. Vérifier parent autorisé ─────────────────────────────
+        ParentAutorise parent = parentRepo
+                .findByNomPrenomAndMatricule(nomPrenomParent.trim(), matriculeParent.trim())
+                .orElseThrow(() -> new RuntimeException("Parent non autorisé ❌"));
+
+        if (parent.isUtilise()) {
+            throw new RuntimeException("Ce parent a déjà un candidat ❌");
+        }
+
+        // ── 1. Vérifier ou créer Saisonnier ─────────────────────────
         Saisonnier s = saisonnierRepo.findByCin(cin).orElse(null);
 
         if (s == null) {
-            // 🔹 nouveau saisonnier
             s = new Saisonnier();
             s.setNom(nom);
             s.setPrenom(prenom);
@@ -76,27 +92,28 @@ public class CandidatureService {
             s.setNiveauEtude(niveauEtude);
             s.setDiplome(diplomeNom);
             s.setSpecialiteDiplome(specialiteDiplome);
+            s.setMoisTravail(moisTravail);
+
             s.setRegion(regionRepo.findById(regionId)
                     .orElseThrow(() -> new RuntimeException("Région non trouvée")));
 
             saisonnierRepo.save(s);
 
         } else {
-            // 🔹 saisonnier existe → mise à jour légère (optionnel)
             s.setTelephone(telephone);
             s.setEmail(email);
             saisonnierRepo.save(s);
         }
 
-        // ── 2. Empêcher double candidature dans même campagne ───────────
+        // ── 2. Empêcher double candidature même campagne ───────────
         boolean dejaPostule = candidatureRepo
                 .existsBySaisonnierIdAndCampagneId(s.getId(), campagneId);
 
         if (dejaPostule) {
-            throw new RuntimeException("Vous avez déjà postulé à cette campagne");
+            throw new RuntimeException("Vous avez déjà postulé à cette campagne ❌");
         }
 
-        // ── 3. Créer Utilisateur si n'existe pas ────────────────────────
+        // ── 3. Créer utilisateur si n'existe pas ───────────────────
         boolean utilisateurExiste = utilisateurRepo.findByEmail(email).isPresent();
 
         if (!utilisateurExiste) {
@@ -112,12 +129,14 @@ public class CandidatureService {
             utilisateur.setEnabled(false);
             utilisateur.setRegion(s.getRegion());
             utilisateur.setSaisonnier(s);
+
             utilisateurRepo.save(utilisateur);
 
             VerificationToken token = new VerificationToken();
             token.setToken(UUID.randomUUID().toString());
             token.setUser(utilisateur);
             token.setExpiryDate(LocalDateTime.now().plusDays(1));
+
             verificationTokenRepo.save(token);
 
             emailService.sendSaisonnierWelcomeEmail(
@@ -128,7 +147,7 @@ public class CandidatureService {
             );
         }
 
-        // ── 4. Créer Candidature ───────────────────────────────────────
+        // ── 4. Créer candidature ───────────────────────────────────
         Candidature c = new Candidature();
         c.setDateDepot(LocalDate.now());
         c.setStatut(StatutCandidature.EN_ATTENTE);
@@ -138,7 +157,7 @@ public class CandidatureService {
 
         candidatureRepo.save(c);
 
-        // ── 5. Vérifier quota structure ────────────────────────────────
+        // ── 5. Vérifier quota structure ────────────────────────────
         Structure structure = structureRepo.findById(structureId)
                 .orElseThrow(() -> new RuntimeException("Structure non trouvée"));
 
@@ -146,11 +165,10 @@ public class CandidatureService {
                 .countByStructureIdAndCampagneId(structureId, campagneId);
 
         if (nbCandidatures >= structure.getAutorises()) {
-            throw new RuntimeException("Quota atteint pour cette structure ("
-                    + structure.getAutorises() + " candidats max)");
+            throw new RuntimeException("Quota atteint (" + structure.getAutorises() + ")");
         }
 
-        // ── 6. Affectation ─────────────────────────────────────────────
+        // ── 6. Affectation ─────────────────────────────────────────
         Affectation affectation = new Affectation();
         affectation.setStructure(structure);
         affectation.setCampagne(c.getCampagne());
@@ -161,12 +179,16 @@ public class CandidatureService {
 
         affectationRepo.save(affectation);
 
-        // ── 7. Upload documents ────────────────────────────────────────
+        // ── 7. Marquer parent comme utilisé 🔥 IMPORTANT ───────────
+        parent.setUtilise(true);
+        parentRepo.save(parent);
+
+        // ── 8. Upload documents ───────────────────────────────────
         saveDoc(c, cinFile, "CIN");
         saveDoc(c, diplome, "DIPLOME");
         saveDoc(c, contrat, "CONTRAT");
+        saveDoc(c, ribFile, "RIB");
     }
-
 
 
 
@@ -252,6 +274,105 @@ public class CandidatureService {
         }
 
         return candidatureRepo.findBySaisonnierId(saisonnier.getId());
+    }
+
+    public void uploadParentsExcel(MultipartFile file) throws Exception {
+
+        Workbook workbook = WorkbookFactory.create(file.getInputStream());
+        Sheet sheet = workbook.getSheetAt(0);
+
+        for (Row row : sheet) {
+
+            if (row.getRowNum() == 0) continue; // skip header
+
+            String nomPrenom = row.getCell(0).getStringCellValue();
+            String matricule = row.getCell(1).getStringCellValue();
+
+            ParentAutorise parent = new ParentAutorise();
+            parent.setNomPrenom(nomPrenom);
+            parent.setMatricule(matricule);
+
+            parentRepo.save(parent);
+        }
+
+        workbook.close();
+    }
+
+
+    public List<Document> getDocumentsByEmail(String email) {
+        Utilisateur utilisateur = utilisateurRepo.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        Saisonnier saisonnier = utilisateur.getSaisonnier();
+        if (saisonnier == null) return List.of();
+
+        return documentRepo.findByCandidatureSaisonnierId(saisonnier.getId());
+    }
+
+    public Map<String, Object> getProfilByEmail(String email) {
+        Utilisateur utilisateur = utilisateurRepo.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        Saisonnier s = utilisateur.getSaisonnier();
+        if (s == null) throw new RuntimeException("Profil saisonnier non trouvé");
+
+        // ── Récupérer la dernière affectation ──────────────────
+        Affectation derniereAffectation = affectationRepo
+                .findTopBySaisonnierIdOrderByDateAffectationDesc(s.getId())
+                .orElse(null);
+
+        Map<String, Object> profil = new java.util.LinkedHashMap<>();
+        profil.put("nom",               s.getNom());
+        profil.put("prenom",            s.getPrenom());
+        profil.put("email",             s.getEmail());
+        profil.put("telephone",         s.getTelephone());
+        profil.put("cin",               s.getCin());
+        profil.put("rib",               s.getRib());
+        profil.put("region",            s.getRegion() != null ? Map.of(
+                "id",  s.getRegion().getId(),
+                "nom", s.getRegion().getNom()
+        ) : null);
+        profil.put("nomPrenomParent",   s.getNomPrenomParent());
+        profil.put("matriculeParent",   s.getMatriculeParent());
+        profil.put("niveauEtude",       s.getNiveauEtude());
+        profil.put("diplome",           s.getDiplome());
+        profil.put("specialiteDiplome", s.getSpecialiteDiplome());
+
+        // ── Ajouter la structure ───────────────────────────────
+        if (derniereAffectation != null && derniereAffectation.getStructure() != null) {
+            Structure st = derniereAffectation.getStructure();
+            profil.put("structure", Map.of(
+                    "id",   st.getId(),
+                    "nom",  st.getNom(),
+                    "type", st.getType().toString(),
+                    "adresse", st.getAdresse() != null ? st.getAdresse() : ""
+            ));
+        } else {
+            profil.put("structure", null);
+        }
+
+        return profil;
+    }
+
+    public Map<String, Object> getStructureByCandidatureId(Long candidatureId) {
+        Candidature c = candidatureRepo.findById(candidatureId)
+                .orElseThrow(() -> new RuntimeException("Candidature non trouvée"));
+
+        Affectation affectation = affectationRepo
+                .findTopBySaisonnierIdOrderByDateAffectationDesc(c.getSaisonnier().getId())
+                .orElse(null);
+
+        if (affectation == null || affectation.getStructure() == null) {
+            return Map.of("structure", "");
+        }
+
+        Structure st = affectation.getStructure();
+        return Map.of(
+                "id",      st.getId(),
+                "nom",     st.getNom(),
+                "type",    st.getType().toString(),
+                "adresse", st.getAdresse() != null ? st.getAdresse() : ""
+        );
     }
 
 }
