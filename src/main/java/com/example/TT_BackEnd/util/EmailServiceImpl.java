@@ -15,7 +15,7 @@ public class EmailServiceImpl {
     public void sendVerificationEmail(String to, String token) {
         String subject = "Activation de votre compte";
         String message = "Cliquez sur ce lien pour activer votre compte : "
-                + "http://localhost:8080/auth/verify?token=" + token;
+                + "https://tt-backend-b7j3.onrender.com/auth/verify?token=" + token;
 
         sendEmail(to, subject, message);
     }
@@ -23,7 +23,7 @@ public class EmailServiceImpl {
     public void sendPasswordResetEmail(String to, String token) {
         String subject = "Réinitialisation du mot de passe";
         String message = "Réinitialisation du mot de passe\n\n"
-                + "Lien : http://localhost:4200/reset-password?token=" + token + "\n\n"
+                + "Lien : https://tt-front-end-amber.vercel.app//reset-password?token=" + token + "\n\n"
                 + "Ou utilisez ce code : " + token;
 
         sendEmail(to, subject, message);
@@ -40,7 +40,7 @@ public class EmailServiceImpl {
 
     public void sendSaisonnierWelcomeEmail(String to, String nom,
                                            String motDePasse, String token) {
-        String lienVerification = "http://localhost:8080/auth/verify?token=" + token;
+        String lienVerification = "https://tt-backend-b7j3.onrender.com/auth/verify?token=" + token;
 
         String contenu = """
         Bonjour %s,
