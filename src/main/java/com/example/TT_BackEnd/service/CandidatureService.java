@@ -285,12 +285,21 @@ public class CandidatureService {
 
             if (row.getRowNum() == 0) continue; // skip header
 
-            String nomPrenom = row.getCell(0).getStringCellValue();
-            String matricule = row.getCell(1).getStringCellValue();
+            // Colonne 0 : nom/prénom (toujours string)
+            String nomPrenom = row.getCell(0).getStringCellValue().trim();
+
+            // Colonne 1 : matricule (peut être number ou string)
+            String matricule = getCellValueAsString(row.getCell(1)).trim();
+
+            // Vérifier si matricule existe déjà
+            if (parentRepo.existsByMatricule(matricule)) {
+                continue; // skip les doublons
+            }
 
             ParentAutorise parent = new ParentAutorise();
             parent.setNomPrenom(nomPrenom);
             parent.setMatricule(matricule);
+            parent.setUtilise(false);
 
             parentRepo.save(parent);
         }
@@ -299,7 +308,24 @@ public class CandidatureService {
     }
 
 
-    public List<Document> getDocumentsByEmail(String email) {
+    private String getCellValueAsString(org.apache.poi.ss.usermodel.Cell cell) {
+        if (cell == null) return "";
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue();
+            case NUMERIC:
+                // Évite le format "12345.0"
+                return String.valueOf((long) cell.getNumericCellValue());
+            case BOOLEAN:
+                return String.valueOf(cell.getBooleanCellValue());
+            case FORMULA:
+                return cell.getCellFormula();
+            default:
+                return "";
+        }
+    }
+
+        public List<Document> getDocumentsByEmail(String email) {
         Utilisateur utilisateur = utilisateurRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
