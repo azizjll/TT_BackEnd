@@ -152,13 +152,14 @@ public class CandidatureController {
             @RequestParam String email,
             @RequestParam Long regionId,
 
+            @RequestParam(required = false) String moisTravail,
             @RequestParam String statut,
             @RequestParam(required = false) String commentaire
     ) {
 
         var candidature = candidatureService.updateCandidature(
                 id, nom, prenom, cin, rib, telephone, email,
-                regionId, statut, commentaire
+                regionId, moisTravail, statut, commentaire
         );
 
         return ResponseEntity.ok(candidature);

@@ -227,6 +227,7 @@ public class CandidatureService {
             String rib,
             String telephone,
             String email,
+            String moisTravail,
             Long regionId,
             String statut,
             String commentaire
@@ -245,6 +246,9 @@ public class CandidatureService {
         s.setTelephone(telephone);
         s.setEmail(email);
         s.setRegion(regionRepo.findById(regionId).get());
+        if (moisTravail != null && !moisTravail.isBlank()) {
+            s.setMoisTravail(moisTravail);
+        }
 
         saisonnierRepo.save(s);
 
