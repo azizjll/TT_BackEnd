@@ -227,8 +227,8 @@ public class CandidatureService {
             String rib,
             String telephone,
             String email,
-            String moisTravail,
             Long regionId,
+            String moisTravail,
             String statut,
             String commentaire
     ) {
