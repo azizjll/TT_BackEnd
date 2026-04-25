@@ -1,5 +1,6 @@
 package com.example.TT_BackEnd.controller;
 
+import com.example.TT_BackEnd.dto.DemandeAutorisationDTO;
 import com.example.TT_BackEnd.service.CandidatureService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -8,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.security.Principal;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/candidatures")
@@ -154,17 +156,26 @@ public class CandidatureController {
 
             @RequestParam(required = false) String moisTravail,
             @RequestParam String statut,
-            @RequestParam(required = false) String commentaire
+            @RequestParam(required = false) String commentaire,
+            @RequestParam(required = false) Long structureId
     ) {
 
         var candidature = candidatureService.updateCandidature(
                 id, nom, prenom, cin, rib, telephone, email,
-                regionId, moisTravail, statut, commentaire
+                regionId, moisTravail, statut, commentaire, structureId
         );
 
         return ResponseEntity.ok(candidature);
     }
 
+    @PostMapping("/demande-autorisation")
+    public ResponseEntity<?> demandeAutorisation(@RequestBody DemandeAutorisationDTO dto) {
+        candidatureService.envoyerDemandeJuilletAout(
+                dto.getCandidatureId(),
+                dto.getCommentaire()
+        );
+        return ResponseEntity.ok(Map.of("message", "Email envoyé aux administrateurs"));
+    }
     @GetMapping("/documents")
     public ResponseEntity<?> getDocumentsBySaisonnier(@RequestParam Long saisonnierId) {
         var docs = candidatureService.getDocumentsBySaisonnier(saisonnierId);

@@ -6,6 +6,8 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class EmailServiceImpl {
@@ -63,5 +65,51 @@ public class EmailServiceImpl {
         message.setSubject("Bienvenue — Activation de votre compte saisonnier");
         message.setText(contenu);
         mailSender.send(message);
+    }
+
+    public void envoyerDemandeAutorisationJuilletAout(
+            String prenomSaisonnier,
+            String nomSaisonnier,
+            String cin,
+            String directionRH,
+            String commentaire,
+            List<String> emailsAdmins
+    ) {
+        String sujet = "📋 Demande d'autorisation — Juillet + Août — "
+                + prenomSaisonnier + " " + nomSaisonnier;
+
+        String corps = """
+            Bonjour,
+
+            Une demande d'autorisation pour un contrat Juillet + Août a été soumise.
+
+            ── Informations du saisonnier ──
+            Nom complet  : %s %s
+            CIN          : %s
+            Direction RH : %s
+            Mois demandé : Juillet + Août
+
+            ── Commentaire du RH ──
+            %s
+
+            Merci de traiter cette demande dans les meilleurs délais.
+
+            Cordialement,
+            Système de gestion des saisonniers
+            """.formatted(
+                prenomSaisonnier, nomSaisonnier,
+                cin,
+                directionRH,
+                commentaire != null ? commentaire : "(aucun commentaire)"
+        );
+
+        for (String email : emailsAdmins) {
+            SimpleMailMessage msg = new SimpleMailMessage();
+            msg.setFrom("azizchahlaoui7@gmail.com");
+            msg.setTo(email);
+            msg.setSubject(sujet);
+            msg.setText(corps);
+            mailSender.send(msg);
+        }
     }
 }

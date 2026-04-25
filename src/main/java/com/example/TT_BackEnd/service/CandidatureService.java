@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -35,6 +36,7 @@ public class CandidatureService {
     private final VerificationTokenRepository verificationTokenRepo;
     private final EmailServiceImpl emailService;
     private final ParentAutoriseRepository parentRepo;
+
 
     public CandidatureService(CandidatureRepository candidatureRepo,
                               CampagneRepository campagneRepo,
@@ -219,6 +221,7 @@ public class CandidatureService {
 
 
     @Transactional
+
     public Candidature updateCandidature(
             Long candidatureId,
             String nom,
@@ -230,7 +233,8 @@ public class CandidatureService {
             Long regionId,
             String moisTravail,
             String statut,
-            String commentaire
+            String commentaire,
+            Long structureId
     ) {
 
         Candidature c = candidatureRepo.findById(candidatureId)
@@ -238,7 +242,7 @@ public class CandidatureService {
 
         Saisonnier s = c.getSaisonnier();
 
-        // modification saisonnier
+        // ── update saisonnier ──
         s.setNom(nom);
         s.setPrenom(prenom);
         s.setCin(cin);
@@ -246,18 +250,94 @@ public class CandidatureService {
         s.setTelephone(telephone);
         s.setEmail(email);
         s.setRegion(regionRepo.findById(regionId).get());
+
         if (moisTravail != null && !moisTravail.isBlank()) {
             s.setMoisTravail(moisTravail);
         }
 
         saisonnierRepo.save(s);
 
-        // modification candidature
+        // ── update candidature ──
         c.setStatut(StatutCandidature.valueOf(statut));
         c.setCommentaire(commentaire);
 
+        // 🔥 GESTION STRUCTURE
+        if (structureId != null) {
+
+            // ancienne affectation
+            Affectation ancienne = affectationRepo
+                    .findTopBySaisonnierIdOrderByDateAffectationDesc(s.getId())
+                    .orElse(null);
+
+            if (ancienne != null) {
+                Structure oldStructure = ancienne.getStructure();
+                oldStructure.setRecrutes(oldStructure.getRecrutes() - 1);
+                affectationRepo.delete(ancienne);
+            }
+
+            // nouvelle structure
+            Structure newStructure = structureRepo.findById(structureId)
+                    .orElseThrow(() -> new RuntimeException("Structure non trouvée"));
+
+            // vérifier quota
+            long nb = affectationRepo.countByStructureIdAndCampagneId(
+                    structureId,
+                    c.getCampagne().getId()
+            );
+
+            if (nb >= newStructure.getAutorises()) {
+                throw new RuntimeException("Quota atteint ❌");
+            }
+
+            Affectation newAffectation = new Affectation();
+            newAffectation.setStructure(newStructure);
+            newAffectation.setCampagne(c.getCampagne());
+            newAffectation.setSaisonnier(s);
+            newAffectation.setDateAffectation(LocalDate.now());
+
+            newStructure.setRecrutes(newStructure.getRecrutes() + 1);
+
+            affectationRepo.save(newAffectation);
+        }
+
         return candidatureRepo.save(c);
     }
+
+    public void envoyerDemandeJuilletAout(Long candidatureId, String commentaire) {
+
+        Candidature c = candidatureRepo.findById(candidatureId)
+                .orElseThrow(() -> new RuntimeException("Candidature non trouvée"));
+
+        Saisonnier s = c.getSaisonnier();
+
+        // ── Changer le statut ──
+        c.setStatut(StatutCandidature.EN_ATTENTE_VALIDATION_ADMIN);
+        c.setCommentaire(commentaire);
+        candidatureRepo.save(c);  // ← sauvegarder le nouveau statut
+
+        // ── Envoyer l'email ──
+        String directionNom = s.getRegion().getNom();
+
+        List<String> emailsAdmins = utilisateurRepo.findByRole(RoleType.ADMIN)
+                .stream()
+                .map(Utilisateur::getEmail)
+                .collect(Collectors.toList());
+
+        if (emailsAdmins.isEmpty()) {
+            throw new RuntimeException("Aucun administrateur trouvé");
+        }
+
+        emailService.envoyerDemandeAutorisationJuilletAout(
+                s.getPrenom(),
+                s.getNom(),
+                s.getCin().toString(),
+                directionNom,
+                commentaire,
+                emailsAdmins
+        );
+    }
+
+
 
     public List<Document> getDocumentsBySaisonnier(Long saisonnierId) {
         return documentRepo.findByCandidatureSaisonnierId(saisonnierId);

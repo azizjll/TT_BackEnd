@@ -79,7 +79,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**" ,"/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/swagger-ui.html","/api/candidatures/**","/api/affectations/**","/api/campagnes/**","/structures/**","/api/structures/**","/api/documents/**","/api/saisonniers/**","/api/admin/documents-campagne/**").permitAll()
+                                "/swagger-ui.html","/api/candidatures/**","/api/affectations/**","/api/campagnes/**","/structures/**","/api/structures/**","/api/documents/**","/api/saisonniers/**","/api/admin/documents-campagne/**","/api/parents/**").permitAll()
                         .requestMatchers("/api/campagnes/**").authenticated()
 
                         .anyRequest().authenticated()
