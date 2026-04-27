@@ -79,7 +79,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**" ,"/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/swagger-ui.html","/api/candidatures/**","/api/affectations/**","/api/campagnes/**","/structures/**","/api/structures/**","/api/documents/**","/api/saisonniers/**","/api/admin/documents-campagne/**").permitAll()
+                                "/swagger-ui.html","/api/candidatures/**","/api/affectations/**","/api/campagnes/**","/structures/**","/api/structures/**","/api/documents/**","/api/saisonniers/**","/api/admin/documents-campagne/**","/api/parents/**","/api/**").permitAll()
                         .requestMatchers("/api/campagnes/**").authenticated()
 
                         .anyRequest().authenticated()
@@ -94,8 +94,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:4200"));
-        config.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
+        config.setAllowedOrigins(List.of(
+                "http://localhost:4200",
+                "https://tt-front-end-amber.vercel.app"
+        ));
+        config.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS","PATCH"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 

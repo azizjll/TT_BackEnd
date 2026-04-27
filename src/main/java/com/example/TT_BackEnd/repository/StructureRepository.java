@@ -43,6 +43,6 @@ public interface StructureRepository extends JpaRepository<Structure, Long> {
     List<Structure> findByCampagneStatut(StatutCampagne statut);
 
     List<Structure> findByRegionIdAndCampagneId(Long regionId, Long campagneId);
-
+    List<Structure> findByCampagneIdAndRegionId(Long campagneId, Long regionId);
 
 }
