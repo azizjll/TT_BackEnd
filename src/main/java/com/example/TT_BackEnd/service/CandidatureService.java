@@ -67,15 +67,22 @@ public class CandidatureService {
                                    String moisTravail,
                                    Long regionId, Long campagneId, Long structureId,
                                    MultipartFile cinFile, MultipartFile diplome,
-                                   MultipartFile contrat, MultipartFile ribFile) throws Exception {
+                                   MultipartFile contrat, MultipartFile ribFile,
+                                   boolean demandeAdminAutorisee,   // 🆕
+                                   String messageDemandeAdmin,
+                                   String rhEmail
+    ) throws Exception {
 
+        // ── 0. Vérifier parent autorisé ─────────────────────────────
         // ── 0. Vérifier parent autorisé ─────────────────────────────
         ParentAutorise parent = parentRepo
                 .findByNomPrenomAndMatricule(nomPrenomParent.trim(), matriculeParent.trim())
                 .orElseThrow(() -> new RuntimeException("Parent non autorisé ❌"));
 
-        if (parent.isUtilise()) {
-            throw new RuntimeException("Ce parent a déjà un candidat ❌");
+        boolean depasse = parent.getUtilise() >= parent.getAutorises();
+
+        if (depasse && !demandeAdminAutorisee) {
+            throw new RuntimeException("QUOTA_DEPASSE"); // code spécial intercepté côté frontend
         }
 
         // ── 1. Vérifier ou créer Saisonnier ─────────────────────────
@@ -152,11 +159,18 @@ public class CandidatureService {
         // ── 4. Créer candidature ───────────────────────────────────
         Candidature c = new Candidature();
         c.setDateDepot(LocalDate.now());
-        c.setStatut(StatutCandidature.EN_ATTENTE);
+
+// 🆕 Si quota dépassé → EN_ATTENTE_VALIDATION_ADMIN
+        if (depasse) {
+            c.setStatut(StatutCandidature.EN_ATTENTE_VALIDATION_ADMIN);
+            c.setCommentaire(messageDemandeAdmin);
+        } else {
+            c.setStatut(StatutCandidature.EN_ATTENTE);
+        }
+
         c.setCampagne(campagneRepo.findById(campagneId)
                 .orElseThrow(() -> new RuntimeException("Campagne non trouvée")));
         c.setSaisonnier(s);
-
         candidatureRepo.save(c);
 
         // ── 5. Vérifier quota structure ────────────────────────────
@@ -181,9 +195,38 @@ public class CandidatureService {
 
         affectationRepo.save(affectation);
 
-        // ── 7. Marquer parent comme utilisé 🔥 IMPORTANT ───────────
-        parent.setUtilise(true);
+        // ── 7. Incrémenter utilise ─────────────────────────────────
+        parent.setUtilise(parent.getUtilise() + 1);
         parentRepo.save(parent);
+
+// ── 8. Si quota dépassé → email spécifique aux admins ─────
+        if (depasse) {
+            List<String> emailsAdmins = utilisateurRepo.findByRole(RoleType.ADMIN)
+                    .stream().map(Utilisateur::getEmail).collect(Collectors.toList());
+
+            // récupérer le RH depuis son email
+            Utilisateur rh = utilisateurRepo.findByEmail(rhEmail)
+                    .orElse(null);
+
+            String prenomRH   = rh != null ? rh.getPrenom() : "Inconnu";
+            String nomRH      = rh != null ? rh.getNom()    : "Inconnu";
+            String directionRH = s.getRegion().getNom();
+
+            emailService.envoyerDemandeAutorisationQuotaParent(
+                    s.getPrenom(),
+                    s.getNom(),
+                    s.getCin().toString(),
+                    matriculeParent,
+                    nomPrenomParent,
+                    parent.getUtilise(),     // après incrément
+                    parent.getAutorises(),
+                    directionRH,
+                    prenomRH,
+                    nomRH,
+                    messageDemandeAdmin,
+                    emailsAdmins
+            );
+        }
 
         // ── 8. Upload documents ───────────────────────────────────
         saveDoc(c, cinFile, "CIN");
@@ -192,6 +235,20 @@ public class CandidatureService {
         saveDoc(c, ribFile, "RIB");
     }
 
+
+    public Map<String, Object> getParentByMatricule(String matricule) {
+        ParentAutorise parent = parentRepo.findByMatricule(matricule.trim())
+                .orElseThrow(() -> new RuntimeException("Matricule introuvable"));
+
+        boolean depasse = parent.getUtilise() >= parent.getAutorises();
+
+        return Map.of(
+                "nomPrenom",  parent.getNomPrenom(),
+                "autorises",  parent.getAutorises(),
+                "utilise",    parent.getUtilise(),
+                "depasse",    depasse
+        );
+    }
 
 
     private void saveDoc(Candidature c, MultipartFile file, String type) throws Exception {
@@ -234,7 +291,9 @@ public class CandidatureService {
             String moisTravail,
             String statut,
             String commentaire,
-            Long structureId
+            Long structureId,
+            String nomPrenomParent, String matriculeParent,
+            String niveauEtude, String diplome, String specialiteDiplome
     ) {
 
         Candidature c = candidatureRepo.findById(candidatureId)
@@ -254,6 +313,15 @@ public class CandidatureService {
         if (moisTravail != null && !moisTravail.isBlank()) {
             s.setMoisTravail(moisTravail);
         }
+
+
+        if (nomPrenomParent   != null && !nomPrenomParent.isBlank())   s.setNomPrenomParent(nomPrenomParent);
+        if (matriculeParent   != null && !matriculeParent.isBlank())   s.setMatriculeParent(matriculeParent);
+        if (niveauEtude       != null && !niveauEtude.isBlank())       s.setNiveauEtude(niveauEtude);
+        if (diplome           != null && !diplome.isBlank())           s.setDiplome(diplome);
+        if (specialiteDiplome != null && !specialiteDiplome.isBlank()) s.setSpecialiteDiplome(specialiteDiplome);
+
+
 
         saisonnierRepo.save(s);
 
@@ -366,24 +434,19 @@ public class CandidatureService {
         Sheet sheet = workbook.getSheetAt(0);
 
         for (Row row : sheet) {
+            if (row.getRowNum() == 0) continue;
 
-            if (row.getRowNum() == 0) continue; // skip header
+            String nomPrenom  = row.getCell(0).getStringCellValue().trim();
+            String matricule  = getCellValueAsString(row.getCell(1)).trim();
+            int    autorises  = (int) row.getCell(2).getNumericCellValue(); // 🆕 colonne C
 
-            // Colonne 0 : nom/prénom (toujours string)
-            String nomPrenom = row.getCell(0).getStringCellValue().trim();
-
-            // Colonne 1 : matricule (peut être number ou string)
-            String matricule = getCellValueAsString(row.getCell(1)).trim();
-
-            // Vérifier si matricule existe déjà
-            if (parentRepo.existsByMatricule(matricule)) {
-                continue; // skip les doublons
-            }
+            if (parentRepo.existsByMatricule(matricule)) continue;
 
             ParentAutorise parent = new ParentAutorise();
             parent.setNomPrenom(nomPrenom);
             parent.setMatricule(matricule);
-            parent.setUtilise(false);
+            parent.setAutorises(autorises);
+            parent.setUtilise(0);
 
             parentRepo.save(parent);
         }

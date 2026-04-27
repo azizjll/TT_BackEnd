@@ -112,4 +112,68 @@ public class EmailServiceImpl {
             mailSender.send(msg);
         }
     }
+
+    public void envoyerDemandeAutorisationQuotaParent(
+            String prenomSaisonnier,
+            String nomSaisonnier,
+            String cin,
+            String matriculeParent,
+            String nomPrenomParent,
+            int utilise,
+            int autorises,
+            String directionRH,
+            String prenom,
+            String nom,
+            String commentaire,
+            List<String> emailsAdmins
+    ) {
+        String sujet = "⚠️ Demande d'autorisation — Quota parent dépassé — "
+                + prenomSaisonnier + " " + nomSaisonnier;
+
+        String corps = """
+        Bonjour,
+
+        Une demande d'autorisation exceptionnelle a été soumise par un RH.
+        Le matricule parent a dépassé son quota d'utilisations autorisées.
+
+        ── Informations du saisonnier ──
+        Nom complet      : %s %s
+        CIN              : %s
+
+        ── Informations du parent ──
+        Nom & Prénom     : %s
+        Matricule        : %s
+        Utilisations     : %d / %d (quota dépassé)
+
+        ── RH demandeur ──
+        Nom complet      : %s %s
+        Direction        : %s
+
+        ── Commentaire du RH ──
+        %s
+
+        Merci de valider ou rejeter cette demande dans les meilleurs délais.
+
+        Cordialement,
+        Système de gestion des saisonniers
+        """.formatted(
+                prenomSaisonnier, nomSaisonnier,
+                cin,
+                nomPrenomParent,
+                matriculeParent,
+                utilise, autorises,
+                prenom, nom,
+                directionRH,
+                commentaire != null ? commentaire : "(aucun commentaire)"
+        );
+
+        for (String email : emailsAdmins) {
+            SimpleMailMessage msg = new SimpleMailMessage();
+            msg.setFrom("azizchahlaoui7@gmail.com");
+            msg.setTo(email);
+            msg.setSubject(sujet);
+            msg.setText(corps);
+            mailSender.send(msg);
+        }
+    }
 }

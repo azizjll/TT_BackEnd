@@ -46,37 +46,33 @@ public class CandidatureController {
             @RequestParam("cinFile") MultipartFile cinFile,
             @RequestParam("diplome") MultipartFile diplome,
             @RequestParam("contrat") MultipartFile contrat,
-            @RequestParam("ribFile") MultipartFile ribFile
+            @RequestParam("ribFile") MultipartFile ribFile,
+            @RequestParam(defaultValue = "false") boolean demandeAdminAutorisee,
+            @RequestParam(required = false, defaultValue = "") String messageDemandeAdmin,
+            Authentication authentication
+
     ) {
 
         try {
 
+            // récupérer email du RH connecté
+            String rhEmail = authentication != null ? authentication.getName() : "";
+
+
             // 🔥 Trim pour éviter erreurs espaces
             candidatureService.deposerCandidature(
-                    nom.trim(),
-                    prenom.trim(),
-                    cin,
-                    rib.trim(),
-                    telephone.trim(),
-                    email.trim(),
-
-                    nomPrenomParent.trim(),
-                    matriculeParent.trim(),
-
-                    niveauEtude.trim(),
-                    diplomeNom.trim(),
-                    specialiteDiplome.trim(),
-                    moisTravail.trim(),
-
-                    regionId,
-                    campagneId,
-                    structureId,
-
-                    cinFile,
-                    diplome,
-                    contrat,
-                    ribFile
+                    nom.trim(), prenom.trim(), cin,
+                    rib.trim(), telephone.trim(), email.trim(),
+                    nomPrenomParent.trim(), matriculeParent.trim(),
+                    niveauEtude.trim(), diplomeNom.trim(),
+                    specialiteDiplome.trim(), moisTravail.trim(),
+                    regionId, campagneId, structureId,
+                    cinFile, diplome, contrat, ribFile,
+                    demandeAdminAutorisee,
+                    messageDemandeAdmin,
+                    rhEmail    // 🆕
             );
+
 
             return ResponseEntity.ok().body( java.util.Map.of( "message", "Votre candidature a été envoyée avec succès. Un email contenant vos identifiants (email et mot de passe) vous a été envoyé. Veuillez consulter votre boîte mail pour accéder à votre compte." ) );
 
@@ -157,14 +153,20 @@ public class CandidatureController {
             @RequestParam(required = false) String moisTravail,
             @RequestParam String statut,
             @RequestParam(required = false) String commentaire,
-            @RequestParam(required = false) Long structureId
+            @RequestParam(required = false) Long structureId,
+            @RequestParam(required = false, defaultValue = "") String nomPrenomParent,
+            @RequestParam(required = false, defaultValue = "") String matriculeParent,
+            @RequestParam(required = false, defaultValue = "") String niveauEtude,
+            @RequestParam(required = false, defaultValue = "") String diplome,
+            @RequestParam(required = false, defaultValue = "") String specialiteDiplome
+
     ) {
 
         var candidature = candidatureService.updateCandidature(
                 id, nom, prenom, cin, rib, telephone, email,
-                regionId, moisTravail, statut, commentaire, structureId
+                regionId, moisTravail, statut, commentaire, structureId,
+                nomPrenomParent, matriculeParent, niveauEtude, diplome, specialiteDiplome  // 🆕
         );
-
         return ResponseEntity.ok(candidature);
     }
 
@@ -175,6 +177,15 @@ public class CandidatureController {
                 dto.getCommentaire()
         );
         return ResponseEntity.ok(Map.of("message", "Email envoyé aux administrateurs"));
+    }
+
+    @GetMapping("/parent-by-matricule")
+    public ResponseEntity<?> getParentByMatricule(@RequestParam String matricule) {
+        try {
+            return ResponseEntity.ok(candidatureService.getParentByMatricule(matricule));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
     }
     @GetMapping("/documents")
     public ResponseEntity<?> getDocumentsBySaisonnier(@RequestParam Long saisonnierId) {

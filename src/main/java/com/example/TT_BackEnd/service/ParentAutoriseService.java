@@ -27,7 +27,8 @@ public class ParentAutoriseService {
     }
 
     // ➕ 3. Ajouter parent
-    public ParentAutorise addParent(String nomPrenom, String matricule) {
+    // ➕ 3. Ajouter parent
+    public ParentAutorise addParent(String nomPrenom, String matricule, int autorises) {
 
         if (parentRepo.existsByMatricule(matricule)) {
             throw new RuntimeException("Matricule déjà existant ❌");
@@ -36,13 +37,14 @@ public class ParentAutoriseService {
         ParentAutorise parent = new ParentAutorise();
         parent.setNomPrenom(nomPrenom);
         parent.setMatricule(matricule);
-        parent.setUtilise(false);
+        parent.setAutorises(autorises); // 🆕
+        parent.setUtilise(0);           // commence à 0
 
         return parentRepo.save(parent);
     }
 
     // ✏️ 4. Modifier parent
-    public ParentAutorise updateParent(Long id, String nomPrenom, String matricule, boolean utilise) {
+    public ParentAutorise updateParent(Long id, String nomPrenom, String matricule, int autorises, int utilise) {
 
         ParentAutorise parent = parentRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Parent non trouvé"));
@@ -54,13 +56,11 @@ public class ParentAutoriseService {
 
         parent.setNomPrenom(nomPrenom);
         parent.setMatricule(matricule);
-
-        // 🔥 AJOUT IMPORTANT
-        parent.setUtilise(utilise);
+        parent.setAutorises(autorises); // 🆕
+        parent.setUtilise(utilise);     // int maintenant
 
         return parentRepo.save(parent);
     }
-
 
     // ❌ 5. Supprimer (optionnel)
     public void deleteParent(Long id) {

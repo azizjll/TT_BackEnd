@@ -31,28 +31,29 @@ public class ParentAutoriseController {
     @PostMapping
     public ResponseEntity<?> addParent(
             @RequestParam String nomPrenom,
-            @RequestParam String matricule
+            @RequestParam String matricule,
+            @RequestParam int autorises          // 🆕
     ) {
         try {
             return ResponseEntity.ok(
-                    parentService.addParent(nomPrenom.trim(), matricule.trim())
+                    parentService.addParent(nomPrenom.trim(), matricule.trim(), autorises)
             );
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    // ✏️ UPDATE
     @PutMapping("/{id}")
     public ResponseEntity<?> updateParent(
             @PathVariable Long id,
             @RequestParam String nomPrenom,
             @RequestParam String matricule,
-            @RequestParam boolean utilise   // 🔥 AJOUT
+            @RequestParam int autorises,         // 🆕 int au lieu de boolean
+            @RequestParam int utilise            // 🆕 int au lieu de boolean
     ) {
         try {
             return ResponseEntity.ok(
-                    parentService.updateParent(id, nomPrenom.trim(), matricule.trim(), utilise)
+                    parentService.updateParent(id, nomPrenom.trim(), matricule.trim(), autorises, utilise)
             );
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
