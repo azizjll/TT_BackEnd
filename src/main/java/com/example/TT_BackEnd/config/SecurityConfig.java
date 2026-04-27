@@ -98,7 +98,7 @@ public class SecurityConfig {
                 "http://localhost:4200",
                 "https://tt-front-end-amber.vercel.app"
         ));
-        config.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
+        config.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS","PATCH"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 
