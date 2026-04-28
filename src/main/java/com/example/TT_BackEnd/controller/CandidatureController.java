@@ -45,7 +45,6 @@ public class CandidatureController {
 
             @RequestParam("cinFile") MultipartFile cinFile,
             @RequestParam("diplome") MultipartFile diplome,
-            @RequestParam("contrat") MultipartFile contrat,
             @RequestParam("ribFile") MultipartFile ribFile,
             @RequestParam(defaultValue = "false") boolean demandeAdminAutorisee,
             @RequestParam(required = false, defaultValue = "") String messageDemandeAdmin,
@@ -67,7 +66,7 @@ public class CandidatureController {
                     niveauEtude.trim(), diplomeNom.trim(),
                     specialiteDiplome.trim(), moisTravail.trim(),
                     regionId, campagneId, structureId,
-                    cinFile, diplome, contrat, ribFile,
+                    cinFile, diplome,  ribFile,
                     demandeAdminAutorisee,
                     messageDemandeAdmin,
                     rhEmail    // 🆕
