@@ -17,7 +17,7 @@ public class EmailServiceImpl {
     public void sendVerificationEmail(String to, String token) {
         String subject = "Activation de votre compte";
         String message = "Cliquez sur ce lien pour activer votre compte : "
-                + "https://tt-backend-b7j3.onrender.com/auth/verify?token=" + token;
+                + "https://localhost:8080/auth/verify?token=" + token;
 
         sendEmail(to, subject, message);
     }

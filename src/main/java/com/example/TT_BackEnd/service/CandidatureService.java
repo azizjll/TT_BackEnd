@@ -67,7 +67,7 @@ public class CandidatureService {
                                    String moisTravail,
                                    Long regionId, Long campagneId, Long structureId,
                                    MultipartFile cinFile, MultipartFile diplome,
-                                   MultipartFile contrat, MultipartFile ribFile,
+                                    MultipartFile ribFile,
                                    boolean demandeAdminAutorisee,   // 🆕
                                    String messageDemandeAdmin,
                                    String rhEmail
@@ -231,7 +231,6 @@ public class CandidatureService {
         // ── 8. Upload documents ───────────────────────────────────
         saveDoc(c, cinFile, "CIN");
         saveDoc(c, diplome, "DIPLOME");
-        saveDoc(c, contrat, "CONTRAT");
         saveDoc(c, ribFile, "RIB");
     }
 
