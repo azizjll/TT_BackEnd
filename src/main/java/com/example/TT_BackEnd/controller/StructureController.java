@@ -25,17 +25,24 @@ public class StructureController {
     }
 
     @GetMapping("/region/{regionId}")
-    public List<StructureDTO> getStructuresByRegion(@PathVariable Long regionId) {
-        return structureRepository.findByRegionId(regionId)
-                .stream()
+    public List<StructureDTO> getStructuresByRegion(
+            @PathVariable Long regionId,
+            @RequestParam(required = false) Long campagneId) {
+
+        List<Structure> structures;
+
+        if (campagneId != null) {
+            // Filtrer par région ET campagne
+            structures = structureRepository.findByRegionIdAndCampagneId(regionId, campagneId);
+        } else {
+            structures = structureRepository.findByRegionId(regionId);
+        }
+
+        return structures.stream()
                 .map(s -> new StructureDTO(
-                        s.getId(),
-                        s.getNom(),
-                        s.getType().name(),
-                        s.getRegion().getNom(),
-                        s.getAdresse(),
-                        s.getAutorises(),
-                        s.getRecrutes()
+                        s.getId(), s.getNom(), s.getType().name(),
+                        s.getRegion().getNom(), s.getAdresse(),
+                        s.getAutorises(), s.getRecrutes()
                 ))
                 .collect(Collectors.toList());
     }

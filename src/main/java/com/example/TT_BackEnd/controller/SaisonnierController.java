@@ -26,4 +26,18 @@ public class SaisonnierController {
     public ResponseEntity<SaisonnierDTO> getById(@PathVariable Long id) {
         return ResponseEntity.ok(service.findById(id));
     }
+
+    @GetMapping("/by-campagne-region")
+    public ResponseEntity<List<SaisonnierDTO>> getByCampagneAndRegion(
+            @RequestParam Long campagneId,
+            @RequestParam Long regionId) {
+        return ResponseEntity.ok(service.findByCampagneAndRegion(campagneId, regionId));
+    }
+
+    @GetMapping("/by-campagne-structure")
+    public ResponseEntity<List<SaisonnierDTO>> getByCampagneAndStructure(
+            @RequestParam Long campagneId,
+            @RequestParam Long structureId) {
+        return ResponseEntity.ok(service.findByCampagneAndStructure(campagneId, structureId));
+    }
 }

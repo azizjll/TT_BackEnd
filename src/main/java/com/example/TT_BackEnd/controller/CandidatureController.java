@@ -1,5 +1,6 @@
 package com.example.TT_BackEnd.controller;
 
+import com.example.TT_BackEnd.dto.DemandeAutorisationDTO;
 import com.example.TT_BackEnd.service.CandidatureService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -8,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.security.Principal;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/candidatures")
@@ -35,6 +37,7 @@ public class CandidatureController {
             @RequestParam String niveauEtude,
             @RequestParam String diplomeNom,
             @RequestParam String specialiteDiplome,
+            @RequestParam String moisTravail,
 
             @RequestParam Long regionId,
             @RequestParam Long campagneId,
@@ -42,35 +45,57 @@ public class CandidatureController {
 
             @RequestParam("cinFile") MultipartFile cinFile,
             @RequestParam("diplome") MultipartFile diplome,
-            @RequestParam("contrat") MultipartFile contrat
+            @RequestParam("contrat") MultipartFile contrat,
+            @RequestParam("ribFile") MultipartFile ribFile,
+            @RequestParam(defaultValue = "false") boolean demandeAdminAutorisee,
+            @RequestParam(required = false, defaultValue = "") String messageDemandeAdmin,
+            Authentication authentication
+
     ) {
 
         try {
+
+            // récupérer email du RH connecté
+            String rhEmail = authentication != null ? authentication.getName() : "";
+
+
+            // 🔥 Trim pour éviter erreurs espaces
             candidatureService.deposerCandidature(
-                    nom, prenom, cin, rib, telephone, email,
-                    nomPrenomParent, matriculeParent,
-                    niveauEtude, diplomeNom, specialiteDiplome,
+                    nom.trim(), prenom.trim(), cin,
+                    rib.trim(), telephone.trim(), email.trim(),
+                    nomPrenomParent.trim(), matriculeParent.trim(),
+                    niveauEtude.trim(), diplomeNom.trim(),
+                    specialiteDiplome.trim(), moisTravail.trim(),
                     regionId, campagneId, structureId,
-                    cinFile, diplome, contrat
+                    cinFile, diplome, contrat, ribFile,
+                    demandeAdminAutorisee,
+                    messageDemandeAdmin,
+                    rhEmail    // 🆕
             );
 
-            return ResponseEntity.ok().body(
-                    java.util.Map.of(
-                            "message",
-                            "Votre candidature a été envoyée avec succès. Un email contenant vos identifiants (email et mot de passe) vous a été envoyé. Veuillez consulter votre boîte mail pour accéder à votre compte."
-                    )
-            );
+
+            return ResponseEntity.ok().body( java.util.Map.of( "message", "Votre candidature a été envoyée avec succès. Un email contenant vos identifiants (email et mot de passe) vous a été envoyé. Veuillez consulter votre boîte mail pour accéder à votre compte." ) );
 
         } catch (RuntimeException e) {
 
+            // 🔥 erreurs métier (parent, quota, déjà candidat…)
             return ResponseEntity.badRequest().body(
-                    java.util.Map.of("message", e.getMessage())
+                    java.util.Map.of(
+                            "success", false,
+                            "message", e.getMessage()
+                    )
             );
 
         } catch (Exception e) {
 
+            // 🔥 log backend (important)
+            e.printStackTrace();
+
             return ResponseEntity.status(500).body(
-                    java.util.Map.of("message", "Erreur serveur")
+                    java.util.Map.of(
+                            "success", false,
+                            "message", "Erreur serveur ❌"
+                    )
             );
         }
     }
@@ -125,18 +150,43 @@ public class CandidatureController {
             @RequestParam String email,
             @RequestParam Long regionId,
 
+            @RequestParam(required = false) String moisTravail,
             @RequestParam String statut,
-            @RequestParam(required = false) String commentaire
+            @RequestParam(required = false) String commentaire,
+            @RequestParam(required = false) Long structureId,
+            @RequestParam(required = false, defaultValue = "") String nomPrenomParent,
+            @RequestParam(required = false, defaultValue = "") String matriculeParent,
+            @RequestParam(required = false, defaultValue = "") String niveauEtude,
+            @RequestParam(required = false, defaultValue = "") String diplome,
+            @RequestParam(required = false, defaultValue = "") String specialiteDiplome
+
     ) {
 
         var candidature = candidatureService.updateCandidature(
                 id, nom, prenom, cin, rib, telephone, email,
-                regionId, statut, commentaire
+                regionId, moisTravail, statut, commentaire, structureId,
+                nomPrenomParent, matriculeParent, niveauEtude, diplome, specialiteDiplome  // 🆕
         );
-
         return ResponseEntity.ok(candidature);
     }
 
+    @PostMapping("/demande-autorisation")
+    public ResponseEntity<?> demandeAutorisation(@RequestBody DemandeAutorisationDTO dto) {
+        candidatureService.envoyerDemandeJuilletAout(
+                dto.getCandidatureId(),
+                dto.getCommentaire()
+        );
+        return ResponseEntity.ok(Map.of("message", "Email envoyé aux administrateurs"));
+    }
+
+    @GetMapping("/parent-by-matricule")
+    public ResponseEntity<?> getParentByMatricule(@RequestParam String matricule) {
+        try {
+            return ResponseEntity.ok(candidatureService.getParentByMatricule(matricule));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
     @GetMapping("/documents")
     public ResponseEntity<?> getDocumentsBySaisonnier(@RequestParam Long saisonnierId) {
         var docs = candidatureService.getDocumentsBySaisonnier(saisonnierId);
@@ -160,6 +210,41 @@ public class CandidatureController {
 
         var candidatures = candidatureService.getHistoriqueCandidatures(email);
         return ResponseEntity.ok(candidatures);
+    }
+
+    @PostMapping("/upload-parents")
+    public ResponseEntity<String> uploadParents(@RequestParam("file") MultipartFile file) {
+        try {
+            candidatureService.uploadParentsExcel(file);
+            return ResponseEntity.ok("Upload réussi ✅");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Erreur ❌ " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/mes-documents")
+    public ResponseEntity<?> getMesDocuments(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body("Non authentifié");
+        }
+        String email = authentication.getName();
+        var docs = candidatureService.getDocumentsByEmail(email);
+        return ResponseEntity.ok(docs);
+    }
+
+
+    @GetMapping("/mon-profil")
+    public ResponseEntity<?> getMonProfil(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body("Non authentifié");
+        }
+        String email = authentication.getName();
+        return ResponseEntity.ok(candidatureService.getProfilByEmail(email));
+    }
+
+    @GetMapping("/{id}/structure")
+    public ResponseEntity<?> getStructureByCandidature(@PathVariable Long id) {
+        return ResponseEntity.ok(candidatureService.getStructureByCandidatureId(id));
     }
 
 }

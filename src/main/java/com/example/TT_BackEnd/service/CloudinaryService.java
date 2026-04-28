@@ -17,22 +17,22 @@ public class CloudinaryService {
         this.cloudinary = cloudinary;
     }
 
-    public String uploadFile(MultipartFile file, String folder) throws IOException {
+    public String uploadFile(MultipartFile file, String folder) {
+        try {
+            Map uploadResult = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    ObjectUtils.asMap(
+                            "folder", folder,
+                            "resource_type", "auto"
+                    )
+            );
+            return uploadResult.get("secure_url").toString();
 
-        Map uploadResult = cloudinary.uploader().upload(
-                file.getBytes(),
-                ObjectUtils.asMap(
-                        "folder", folder,
-                        "resource_type", "auto"
-                )
-        );
-
-        return uploadResult.get("secure_url").toString();
+        } catch (IOException e) {
+            throw new RuntimeException("Erreur upload Cloudinary : " + e.getMessage(), e);
+        }
     }
 }
-
-
-
 
 /*package com.example.TT_BackEnd.service;
 

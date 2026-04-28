@@ -18,36 +18,35 @@ public class StructureService {
 
     public List<Structure> getStructuresCampagneActive() {
 
-        // ── 1. Email de l'utilisateur connecté via JWT ────────────────
         String email = SecurityContextHolder.getContext()
                 .getAuthentication().getName();
-
-        System.out.println("=== Utilisateur connecté : " + email);
 
         Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
 
-        System.out.println("=== Utilisateur ID : " + utilisateur.getId());
-
-        // ── 2. Campagne ACTIVE de CET utilisateur seulement ──────────
+        // ── Campagne ACTIVE (peu importe le créateur) ─────────────
         List<Campagne> campagnes = campagneRepository
-                .findByStatutAndCreateurId(StatutCampagne.ACTIVE, utilisateur.getId());
-
-        System.out.println("=== Campagnes actives trouvées : " + campagnes.size());
+                .findByStatut(StatutCampagne.ACTIVE); // ← plus de createurId
 
         if (campagnes.isEmpty()) {
-            System.out.println("=== Aucune campagne active pour : " + email);
-            return List.of(); // liste vide — pas d'erreur 500
+            System.out.println("=== Aucune campagne active");
+            return List.of();
         }
 
         Long campagneActiveId = campagnes.get(0).getId();
-        System.out.println("=== Campagne active ID : " + campagneActiveId);
 
-        // ── 3. Structures liées à cette campagne ─────────────────────
-        List<Structure> structures = structureRepository.findByCampagneId(campagneActiveId);
-        System.out.println("=== Structures trouvées : " + structures.size());
+        // ── Filtrer par région du RH_REGIONAL ────────────────────
+        if (utilisateur.getRole() == RoleType.RH_REGIONAL
+                && utilisateur.getRegion() != null) {
 
-        return structures;
+            Long regionId = utilisateur.getRegion().getId();
+            System.out.println("=== RH_REGIONAL région ID : " + regionId);
+            return structureRepository
+                    .findByCampagneIdAndRegionId(campagneActiveId, regionId); // ← nouveau
+        }
+
+        // ── Admin / autres rôles : toutes les structures ──────────
+        return structureRepository.findByCampagneId(campagneActiveId);
     }
 
     // ← version sans SecurityContextHolder (publique)
@@ -62,4 +61,6 @@ public class StructureService {
         Long campagneActiveId = campagnesActives.get(0).getId();
         return structureRepository.findByCampagneId(campagneActiveId);
     }
+
+
 }
