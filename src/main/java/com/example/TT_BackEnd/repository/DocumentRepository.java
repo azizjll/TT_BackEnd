@@ -8,4 +8,6 @@ import java.util.List;
 public interface DocumentRepository extends JpaRepository<Document, Long> {
     Document findTopByTypeOrderByIdDesc(String type);
     List<Document> findByCandidatureSaisonnierId(Long saisonnierId);
+
+    List<Document> findByCandidatureId(Long candidatureId);
 }

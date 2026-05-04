@@ -17,7 +17,7 @@ public class EmailServiceImpl {
     public void sendVerificationEmail(String to, String token) {
         String subject = "Activation de votre compte";
         String message = "Cliquez sur ce lien pour activer votre compte : "
-                + "https://localhost:8080/auth/verify?token=" + token;
+                + "http://localhost:8080/auth/verify?token=" + token;
 
         sendEmail(to, subject, message);
     }
@@ -42,7 +42,7 @@ public class EmailServiceImpl {
 
     public void sendSaisonnierWelcomeEmail(String to, String nom,
                                            String motDePasse, String token) {
-        String lienVerification = "https://localhost:8080/auth/verify?token=" + token;
+        String lienVerification = "http://localhost:8080/auth/verify?token=" + token;
 
         String contenu = """
         Bonjour %s,

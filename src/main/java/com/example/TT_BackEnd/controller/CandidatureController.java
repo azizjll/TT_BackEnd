@@ -1,6 +1,9 @@
 package com.example.TT_BackEnd.controller;
 
 import com.example.TT_BackEnd.dto.DemandeAutorisationDTO;
+import com.example.TT_BackEnd.entity.AnalyseIA;
+import com.example.TT_BackEnd.repository.AnalyseIARepository;
+import com.example.TT_BackEnd.service.AnalyseIAService;
 import com.example.TT_BackEnd.service.CandidatureService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -17,10 +20,37 @@ import java.util.Map;
 public class CandidatureController {
 
     private final CandidatureService candidatureService;
+    private final AnalyseIAService analyseIAService;
+    private final AnalyseIARepository analyseIARepo;
 
-    public CandidatureController(CandidatureService candidatureService) {
+    public CandidatureController(CandidatureService candidatureService, AnalyseIAService analyseIAService, AnalyseIARepository analyseIARepo) {
         this.candidatureService = candidatureService;
+        this.analyseIAService = analyseIAService;
+        this.analyseIARepo = analyseIARepo;
     }
+
+
+    @PostMapping("/{id}/analyser")
+    public ResponseEntity<?> analyserCandidature(@PathVariable Long id) {
+        try {
+            AnalyseIA resultat = analyseIAService.analyserCandidature(id);
+            return ResponseEntity.ok(resultat);
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(Map.of("message", "Erreur analyse IA: " + e.getMessage()));
+        }
+    }
+
+    // Récupérer le résultat déjà sauvegardé
+    @GetMapping("/{id}/analyse")
+    public ResponseEntity<?> getAnalyse(@PathVariable Long id) {
+        return analyseIARepo.findByCandidatureId(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+
+
 
     @PostMapping(value = "/depot", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> deposerCandidature(
