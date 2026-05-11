@@ -1,5 +1,7 @@
 package com.example.TT_BackEnd.controller;
 
+import com.example.TT_BackEnd.dto.AbsenceRequest;
+import com.example.TT_BackEnd.dto.SaisonnierAbsenceDTO;
 import com.example.TT_BackEnd.dto.SaisonnierDTO;
 import com.example.TT_BackEnd.service.SaisonnierService;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,24 @@ import java.util.List;
 public class SaisonnierController {
 
     private final SaisonnierService service;
+
+
+
+    // Ajouter dans SaisonnierController.java
+
+    // SaisonnierController.java
+    @PostMapping("/absences-excessives")
+    public ResponseEntity<List<SaisonnierAbsenceDTO>> getAbsencesExcessives(
+            @RequestBody AbsenceRequest req) {
+        return ResponseEntity.ok(
+                service.findAbsencesExcessives(
+                        req.getCampagneId(),
+                        req.getRegionId(),
+                        req.getSeuil(),
+                        req.getAbsencesData()   // ← passer la map ici
+                )
+        );
+    }
 
     @GetMapping
     public ResponseEntity<List<SaisonnierDTO>> getAll() {
