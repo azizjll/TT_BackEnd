@@ -20,7 +20,7 @@ public class Saisonnier {
     private String prenom;
 
     @Column(unique = true)
-    private Integer cin;
+    private String cin;
 
     private String rib;
     private String telephone;

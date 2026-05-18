@@ -23,6 +23,9 @@ public class Utilisateur {
     @Column(unique = true)
     private Integer cin;
 
+    @Column(unique = true)
+    private Integer matricule;
+
     private String telephone;
 
     @Enumerated(EnumType.STRING)

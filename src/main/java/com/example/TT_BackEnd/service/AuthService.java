@@ -65,6 +65,36 @@ public class AuthService {
     }
 
 
+    // -------------------- SIGNIN avec Matricule OU Email --------------------
+    /**
+     * Le champ "identifiant" peut être :
+     *  - un matricule numérique (ex: "74151")  → on cherche par CIN
+     *  - un email (ex: "nom@tunisietelecom.tn") → on cherche par email
+     *
+     * Spring Security s'appuie sur l'email en interne (loadUserByUsername),
+     * donc on résout d'abord l'email réel avant d'authentifier.
+     */
+    public String signinAdministrateur(SigninAdministrateurRequest request) {
+
+        Utilisateur user = userRepository.findByMatricule(request.getMatricule())
+                .orElseThrow(() ->
+                        new RuntimeException("Matricule introuvable")
+                );
+
+        var auth = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        user.getEmail(),
+                        request.getPassword()
+                )
+        );
+
+        UserDetails userDetails = (UserDetails) auth.getPrincipal();
+
+        return jwtUtils.generateToken(userDetails);
+    }
+
+
+
     // -------------------- VERIFY EMAIL --------------------
     public void verifyToken(String tokenStr) {
         VerificationToken token = verificationTokenRepository.findByToken(tokenStr)
@@ -88,7 +118,6 @@ public class AuthService {
         return jwtUtils.generateToken(userDetails);
     }
 
-    // -------------------- FORGOT PASSWORD --------------------
     @Transactional
     public void forgotPassword(String email) {
 
@@ -100,8 +129,8 @@ public class AuthService {
                 .orElse(new PasswordResetToken());
 
         token.setUser(user);
-        token.setToken(UUID.randomUUID().toString());
-        token.setExpiryDate(LocalDateTime.now().plusMinutes(1));
+        token.setToken(String.format("%06d", (int)(Math.random() * 1_000_000))); // ← seul changement
+        token.setExpiryDate(LocalDateTime.now().plusMinutes(15));
 
         passwordResetTokenRepository.save(token);
 
@@ -111,10 +140,11 @@ public class AuthService {
     // -------------------- RESET PASSWORD --------------------
     public void resetPassword(NewPasswordRequest request) {
         PasswordResetToken token = passwordResetTokenRepository.findByToken(request.getToken())
-                .orElseThrow(() -> new RuntimeException("Token invalide"));
+                .orElseThrow(() -> new RuntimeException("Code invalide ou déjà utilisé"));
 
-        if(token.getExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Token expiré");
+        if (token.getExpiryDate().isBefore(LocalDateTime.now())) {
+            passwordResetTokenRepository.delete(token); // nettoyage automatique
+            throw new RuntimeException("Code expiré, veuillez en demander un nouveau");
         }
 
         Utilisateur user = token.getUser();
@@ -123,6 +153,7 @@ public class AuthService {
 
         passwordResetTokenRepository.delete(token);
     }
+    // -------------------- FORGOT PASSWORD --------------------
 
     // -------------------- LOAD USER FOR SPRING SECURITY --------------------
     public UserDetails loadUserByUsername(String email) {

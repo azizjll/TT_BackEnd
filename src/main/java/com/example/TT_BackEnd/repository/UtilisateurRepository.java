@@ -19,6 +19,8 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Long> 
     List<Utilisateur> findByRegionAndRole(Region region, RoleType roleType);
 
     List<Utilisateur> findByRole(RoleType role);
+    Optional<Utilisateur> findByMatricule(Integer matricule);
+
 
 
 }

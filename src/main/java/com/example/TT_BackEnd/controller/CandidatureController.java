@@ -27,7 +27,7 @@ public class CandidatureController {
 
             @RequestParam String nom,
             @RequestParam String prenom,
-            @RequestParam Integer cin,
+            @RequestParam String cin,
             @RequestParam String rib,
             @RequestParam String telephone,
             @RequestParam String email,
@@ -45,7 +45,6 @@ public class CandidatureController {
 
             @RequestParam("cinFile") MultipartFile cinFile,
             @RequestParam("diplome") MultipartFile diplome,
-            @RequestParam("contrat") MultipartFile contrat,
             @RequestParam("ribFile") MultipartFile ribFile,
             @RequestParam(defaultValue = "false") boolean demandeAdminAutorisee,
             @RequestParam(required = false, defaultValue = "") String messageDemandeAdmin,
@@ -61,13 +60,13 @@ public class CandidatureController {
 
             // 🔥 Trim pour éviter erreurs espaces
             candidatureService.deposerCandidature(
-                    nom.trim(), prenom.trim(), cin,
+                    nom.trim(), prenom.trim(),  cin.trim(),
                     rib.trim(), telephone.trim(), email.trim(),
                     nomPrenomParent.trim(), matriculeParent.trim(),
                     niveauEtude.trim(), diplomeNom.trim(),
                     specialiteDiplome.trim(), moisTravail.trim(),
                     regionId, campagneId, structureId,
-                    cinFile, diplome, contrat, ribFile,
+                    cinFile, diplome,  ribFile,
                     demandeAdminAutorisee,
                     messageDemandeAdmin,
                     rhEmail    // 🆕

@@ -4,6 +4,7 @@ import com.example.TT_BackEnd.entity.*;
 import com.example.TT_BackEnd.repository.*;
 import com.example.TT_BackEnd.util.EmailServiceImpl;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
+@Slf4j
 public class CandidatureService {
 
     private final CandidatureRepository candidatureRepo;
@@ -59,7 +61,7 @@ public class CandidatureService {
     }
 
     @Transactional
-    public void deposerCandidature(String nom, String prenom, Integer cin,
+    public void deposerCandidature(String nom, String prenom, String cin,
                                    String rib, String telephone, String email,
                                    String nomPrenomParent, String matriculeParent,
                                    String niveauEtude, String diplomeNom,
@@ -67,7 +69,7 @@ public class CandidatureService {
                                    String moisTravail,
                                    Long regionId, Long campagneId, Long structureId,
                                    MultipartFile cinFile, MultipartFile diplome,
-                                   MultipartFile contrat, MultipartFile ribFile,
+                                    MultipartFile ribFile,
                                    boolean demandeAdminAutorisee,   // 🆕
                                    String messageDemandeAdmin,
                                    String rhEmail
@@ -82,11 +84,11 @@ public class CandidatureService {
         boolean depasse = parent.getUtilise() >= parent.getAutorises();
 
         if (depasse && !demandeAdminAutorisee) {
-            throw new RuntimeException("QUOTA_DEPASSE"); // code spécial intercepté côté frontend
+            throw new RuntimeException("Quota dépassé : Vous avez atteint le nombre maximal de matricules parents autorisés."); // code spécial intercepté côté frontend
         }
 
         // ── 1. Vérifier ou créer Saisonnier ─────────────────────────
-        Saisonnier s = saisonnierRepo.findByCin(cin).orElse(null);
+        Saisonnier s = saisonnierRepo.findByCin(Integer.valueOf(cin)).orElse(null);
 
         if (s == null) {
             s = new Saisonnier();
@@ -231,7 +233,6 @@ public class CandidatureService {
         // ── 8. Upload documents ───────────────────────────────────
         saveDoc(c, cinFile, "CIN");
         saveDoc(c, diplome, "DIPLOME");
-        saveDoc(c, contrat, "CONTRAT");
         saveDoc(c, ribFile, "RIB");
     }
 
@@ -304,7 +305,7 @@ public class CandidatureService {
         // ── update saisonnier ──
         s.setNom(nom);
         s.setPrenom(prenom);
-        s.setCin(cin);
+        s.setCin(String.valueOf(cin));
         s.setRib(rib);
         s.setTelephone(telephone);
         s.setEmail(email);
@@ -326,8 +327,30 @@ public class CandidatureService {
         saisonnierRepo.save(s);
 
         // ── update candidature ──
+
+        StatutCandidature nouveauStatut = StatutCandidature.valueOf(statut);
+        StatutCandidature ancienStatut  = c.getStatut();
+
+
         c.setStatut(StatutCandidature.valueOf(statut));
         c.setCommentaire(commentaire);
+
+        // ✅ Envoyer email si statut change vers ACCEPTEE ou REFUSEE
+        if (ancienStatut != nouveauStatut) {
+            String emailSaisonnier = s.getEmail();
+            String prenomNom = s.getPrenom() + " " + s.getNom();
+
+            try {
+                if (nouveauStatut == StatutCandidature.ACCEPTEE) {
+                    emailService.sendCandidatureAccepteeEmail(emailSaisonnier, prenomNom);
+                } else if (nouveauStatut == StatutCandidature.REJETEE) {
+                    emailService.sendCandidatureRefuseeEmail(emailSaisonnier, prenomNom);
+                }
+            } catch (Exception e) {
+                // Ne pas bloquer la mise à jour si l'email échoue
+                log.error("❌ Échec envoi email statut candidature : {}", e.getMessage());
+            }
+        }
 
         // 🔥 GESTION STRUCTURE
         if (structureId != null) {
@@ -436,9 +459,19 @@ public class CandidatureService {
         for (Row row : sheet) {
             if (row.getRowNum() == 0) continue;
 
-            String nomPrenom  = row.getCell(0).getStringCellValue().trim();
-            String matricule  = getCellValueAsString(row.getCell(1)).trim();
-            int    autorises  = (int) row.getCell(2).getNumericCellValue(); // 🆕 colonne C
+            // Colonnes : N(0) | Matricule(1) | Nom & Prénom(2) | Autorises(3)
+            String matricule    = getCellValueAsString(row.getCell(1)).trim();
+            String nomPrenom    = getCellValueAsString(row.getCell(2)).trim();
+            String autorisesStr = getCellValueAsString(row.getCell(3)).trim();
+
+            if (matricule.isEmpty() || nomPrenom.isEmpty()) continue; // ligne vide → skip
+
+            int autorises;
+            try {
+                autorises = Integer.parseInt(autorisesStr);
+            } catch (NumberFormatException e) {
+                continue; // valeur non valide → skip
+            }
 
             if (parentRepo.existsByMatricule(matricule)) continue;
 

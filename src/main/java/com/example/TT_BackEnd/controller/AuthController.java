@@ -46,6 +46,18 @@ public class AuthController {
                 .collect(Collectors.toList());
     }
 
+    @PostMapping("/signin-admin")
+    public ResponseEntity<?> signinAdministrateur(
+            @RequestBody SigninAdministrateurRequest request
+    ) {
+
+        String jwt = authService.signinAdministrateur(request);
+
+        return ResponseEntity.ok(Map.of(
+                "token", jwt
+        ));
+    }
+
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@RequestBody SignupRequest request) {
         authService.signup(request);

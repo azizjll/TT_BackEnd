@@ -1,68 +1,48 @@
 package com.example.TT_BackEnd.service;
 
-import com.cloudinary.Cloudinary;
-import com.cloudinary.utils.ObjectUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.Map;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.UUID;
 
 @Service
-public class CloudinaryService {
+public class CloudinaryService {   // ← garde le même nom pour ne pas changer tous les appels
 
-    private final Cloudinary cloudinary;
+    @Value("${storage.local.path}")
+    private String storagePath;
 
-    public CloudinaryService(Cloudinary cloudinary) {
-        this.cloudinary = cloudinary;
-    }
+    @Value("${storage.local.base-url}")
+    private String baseUrl;
 
     public String uploadFile(MultipartFile file, String folder) {
         try {
-            Map uploadResult = cloudinary.uploader().upload(
-                    file.getBytes(),
-                    ObjectUtils.asMap(
-                            "folder", folder,
-                            "resource_type", "auto"
-                    )
-            );
-            return uploadResult.get("secure_url").toString();
+            // Créer le dossier s'il n'existe pas
+            Path dirPath = Paths.get(storagePath, folder);
+            Files.createDirectories(dirPath);
+
+            // Nom unique pour éviter les conflits
+            String extension = getExtension(file.getOriginalFilename());
+            String fileName = UUID.randomUUID().toString() + extension;
+
+            // Sauvegarder le fichier
+            Path filePath = dirPath.resolve(fileName);
+            Files.write(filePath, file.getBytes());
+
+            // Retourner l'URL d'accès
+            return baseUrl + "/" + folder + "/" + fileName;
 
         } catch (IOException e) {
-            throw new RuntimeException("Erreur upload Cloudinary : " + e.getMessage(), e);
+            throw new RuntimeException("Erreur stockage local : " + e.getMessage(), e);
         }
     }
+
+    private String getExtension(String filename) {
+        if (filename == null || !filename.contains(".")) return "";
+        return "." + filename.substring(filename.lastIndexOf('.') + 1);
+    }
 }
-
-/*package com.example.TT_BackEnd.service;
-
-import com.cloudinary.Cloudinary;
-import com.cloudinary.utils.ObjectUtils;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.util.Map;
-
-@Service
-public class CloudinaryService {
-
-    private final Cloudinary cloudinary;
-
-    public CloudinaryService(Cloudinary cloudinary) {
-        this.cloudinary = cloudinary;
-    }
-
-    public String uploadFile(MultipartFile file, String folder) throws IOException {
-
-        Map uploadResult = cloudinary.uploader().upload(
-                file.getBytes(),
-                ObjectUtils.asMap(
-                        "folder", folder,
-                        "resource_type", "auto"
-                )
-        );
-
-        return uploadResult.get("secure_url").toString();
-    }
-}*/

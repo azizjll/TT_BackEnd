@@ -17,17 +17,18 @@ public class EmailServiceImpl {
     public void sendVerificationEmail(String to, String token) {
         String subject = "Activation de votre compte";
         String message = "Cliquez sur ce lien pour activer votre compte : "
-                + "https://tt-backend-b7j3.onrender.com/auth/verify?token=" + token;
+                + "http://localhost:8080/auth/verify?token=" + token;
 
         sendEmail(to, subject, message);
     }
 
     public void sendPasswordResetEmail(String to, String token) {
         String subject = "Réinitialisation du mot de passe";
-        String message = "Réinitialisation du mot de passe\n\n"
-                + "Lien : https://localhost:4200//reset-password?token=" + token + "\n\n"
-                + "Ou utilisez ce code : " + token;
-
+        String message = "Bonjour,\n\n"
+                + "Voici votre code de réinitialisation :\n\n"
+                + "    " + token + "\n\n"
+                + "Ce code est valable 15 minutes.\n"
+                + "Si vous n'avez pas fait cette demande, ignorez cet email.";
         sendEmail(to, subject, message);
     }
 
@@ -42,7 +43,7 @@ public class EmailServiceImpl {
 
     public void sendSaisonnierWelcomeEmail(String to, String nom,
                                            String motDePasse, String token) {
-        String lienVerification = "https://localhost:8080/auth/verify?token=" + token;
+        String lienVerification = "http://localhost:8080/auth/verify?token=" + token;
 
         String contenu = """
         Bonjour %s,
@@ -176,4 +177,114 @@ public class EmailServiceImpl {
             mailSender.send(msg);
         }
     }
+
+    public void sendSuperAdminWelcomeEmail(String to, String nom, String prenom, Integer matricule) {
+        String sujet = "🔐 Bienvenue — Vos identifiants SuperAdmin";
+
+        String contenu = """
+        Bonjour %s %s,
+
+        Votre compte SuperAdmin a été créé avec succès.
+
+        ── Vos identifiants de connexion ──
+        📧 Email      : %s
+        🪪 Matricule  : %d
+        🔑 Mot de passe : %d
+
+        ⚠️ Pour des raisons de sécurité, veuillez changer votre mot de passe dès votre première connexion.
+
+        Cordialement,
+        Système de gestion des saisonniers
+        """.formatted(prenom, nom, to, matricule, matricule);
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("azizchahlaoui7@gmail.com");
+        message.setTo(to);
+        message.setSubject(sujet);
+        message.setText(contenu);
+        mailSender.send(message);
+    }
+    public void sendWelcomeRHEmail(String to, String nom, String prenom, Integer matricule) {
+        String sujet = "🎉 Bienvenue sur la plateforme de gestion des saisonniers";
+
+        String contenu = """
+        Bonjour %s %s,
+
+        Votre compte a été créé avec succès sur la plateforme de gestion des saisonniers.
+
+        ── Vos identifiants de connexion ──
+        📧 Email      : %s
+        🔑 Mot de passe : %d
+
+        🔗 Accéder à la plateforme :
+        http://localhost:4200/home-ge
+
+        ⚠️ Votre mot de passe est votre matricule. Veuillez le changer dès votre première connexion.
+
+        Cordialement,
+        Système de gestion des saisonniers
+        """.formatted(prenom, nom, to, matricule);
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("azizchahlaoui7@gmail.com");
+        message.setTo(to);
+        message.setSubject(sujet);
+        message.setText(contenu);
+        mailSender.send(message);
+    }
+
+    public void sendCandidatureAccepteeEmail(String to, String prenomNom) {
+        String sujet = "✅ Candidature acceptée — Tunisie Telecom";
+
+        String contenu = """
+        Bonjour %s,
+
+        Nous avons le plaisir de vous informer que votre candidature a été acceptée.
+
+        Vous ferez partie de notre équipe de saisonniers pour cette campagne.
+        Vous serez contacté prochainement pour les détails de votre prise de poste.
+
+        Bienvenue dans l'équipe ! 🎉
+
+        Cordialement,
+        Direction des Ressources Humaines
+        Tunisie Telecom
+        """.formatted(prenomNom);
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("azizchahlaoui7@gmail.com");
+        message.setTo(to);
+        message.setSubject(sujet);
+        message.setText(contenu);
+        mailSender.send(message);
+    }
+
+    public void sendCandidatureRefuseeEmail(String to, String prenomNom) {
+        String sujet = "❌ Candidature — Suite donnée à votre dossier";
+
+        String contenu = """
+        Bonjour %s,
+
+        Nous vous remercions de l'intérêt que vous portez à Tunisie Telecom
+        et du temps consacré à votre candidature.
+
+        Malheureusement, nous ne sommes pas en mesure de donner suite
+        à votre candidature pour cette campagne.
+
+        Nous vous encourageons à renouveler votre candidature lors
+        de nos prochaines campagnes de recrutement saisonnier.
+
+        Cordialement,
+        Direction des Ressources Humaines
+        Tunisie Telecom
+        """.formatted(prenomNom);
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("azizchahlaoui7@gmail.com");
+        message.setTo(to);
+        message.setSubject(sujet);
+        message.setText(contenu);
+        mailSender.send(message);
+    }
+
 }

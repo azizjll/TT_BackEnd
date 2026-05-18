@@ -11,6 +11,7 @@ public class SignupRequest {
     private String prenom;
     private String email;
     private Integer cin;
+    private Integer matricule;    // Matricule professionnel
     private String telephone;
     private String password;
     private RoleType role;

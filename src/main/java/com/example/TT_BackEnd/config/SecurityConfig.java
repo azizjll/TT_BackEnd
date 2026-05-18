@@ -77,9 +77,9 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**" ,"/swagger-ui/**",
+                        .requestMatchers("/auth/**" ,"/swagger-ui/**","/files/**",
                                 "/v3/api-docs/**",
-                                "/swagger-ui.html","/api/candidatures/**","/api/affectations/**","/api/campagnes/**","/structures/**","/api/structures/**","/api/documents/**","/api/saisonniers/**","/api/admin/documents-campagne/**","/api/parents/**","/api/**").permitAll()
+                                "/swagger-ui.html","/api/candidatures/**","/api/affectations/**","/api/campagnes/**","/structures/**","/api/structures/**","/api/documents/**","/api/saisonniers/**","/api/admin/documents-campagne/**","/api/parents/**","/api/**","/superadmin/**").permitAll()
                         .requestMatchers("/api/campagnes/**").authenticated()
 
                         .anyRequest().authenticated()
