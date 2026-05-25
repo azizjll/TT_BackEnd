@@ -34,6 +34,8 @@ public class Saisonnier {
 
     private String moisTravail; //
 
+    private Integer absences = 0;
+
 
     @ManyToOne
     @JoinColumn(name = "region_id")

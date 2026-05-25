@@ -17,13 +17,13 @@ public class Utilisateur {
     private String nom;
     private String prenom;
 
-    @Column(unique = true)
+
     private String email;
 
-    @Column(unique = true)
+
     private Integer cin;
 
-    @Column(unique = true)
+
     private Integer matricule;
 
     private String telephone;
@@ -39,6 +39,9 @@ public class Utilisateur {
     @JoinColumn(name = "region_id")
     private Region region; // obligatoire pour RH, facultatif pour admin ou saisonnier
 
+    @ManyToOne
+    @JoinColumn(name = "structure_id")
+    private Structure structure;
     // --- Tokens ---
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     @JsonIgnore
@@ -48,9 +51,17 @@ public class Utilisateur {
     @JsonIgnore
     private PasswordResetToken passwordResetToken;
 
+
+
     // Dans Utilisateur.java — ajouter :
     @OneToOne
     @JoinColumn(name = "saisonnier_id")
     @JsonIgnore
     private Saisonnier saisonnier;
+
+    // Dans l'entité Utilisateur — ajouter ce champ :
+    @ManyToOne
+    @JoinColumn(name = "campagne_id")
+    @JsonIgnore
+    private Campagne campagne;
 }

@@ -44,5 +44,14 @@ public interface StructureRepository extends JpaRepository<Structure, Long> {
 
     List<Structure> findByRegionIdAndCampagneId(Long regionId, Long campagneId);
     List<Structure> findByCampagneIdAndRegionId(Long campagneId, Long regionId);
+    Optional<Structure> findByNomIgnoreCaseAndRegion(String nom, Region region);
+
+    @Query("SELECT s FROM Structure s WHERE LOWER(s.nom) = LOWER(:nom) " +
+            "AND s.region = :region AND s.campagne.id = :campagneId")
+    Optional<Structure> findByNomIgnoreCaseAndRegionAndCampagneId(
+            @Param("nom") String nom,
+            @Param("region") Region region,
+            @Param("campagneId") Long campagneId
+    );
 
 }

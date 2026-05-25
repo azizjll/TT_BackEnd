@@ -54,10 +54,9 @@ public class EmailServiceImpl {
         📧 Email : %s
         🔑 Mot de passe  : %s
         
-        Veuillez vérifier votre compte en cliquant sur ce lien :
-        %s
+        Vous pouvez maintenant vous connecter à la plateforme.
         
-        Ce lien expire dans 24h.
+        
         """.formatted(nom, to, motDePasse, lienVerification);
 
         SimpleMailMessage message = new SimpleMailMessage();
@@ -187,7 +186,7 @@ public class EmailServiceImpl {
         Votre compte SuperAdmin a été créé avec succès.
 
         ── Vos identifiants de connexion ──
-        📧 Email      : %s
+        
         🪪 Matricule  : %d
         🔑 Mot de passe : %d
 
@@ -195,7 +194,7 @@ public class EmailServiceImpl {
 
         Cordialement,
         Système de gestion des saisonniers
-        """.formatted(prenom, nom, to, matricule, matricule);
+        """.formatted(prenom, nom,  matricule, matricule);
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom("azizchahlaoui7@gmail.com");
@@ -247,7 +246,6 @@ public class EmailServiceImpl {
         Bienvenue dans l'équipe ! 🎉
 
         Cordialement,
-        Direction des Ressources Humaines
         Tunisie Telecom
         """.formatted(prenomNom);
 
@@ -275,7 +273,6 @@ public class EmailServiceImpl {
         de nos prochaines campagnes de recrutement saisonnier.
 
         Cordialement,
-        Direction des Ressources Humaines
         Tunisie Telecom
         """.formatted(prenomNom);
 

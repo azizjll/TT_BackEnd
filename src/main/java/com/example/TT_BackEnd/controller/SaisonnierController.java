@@ -1,43 +1,84 @@
 package com.example.TT_BackEnd.controller;
 
 import com.example.TT_BackEnd.dto.SaisonnierDTO;
+import com.example.TT_BackEnd.dto.UpdatePaieRequest;
 import com.example.TT_BackEnd.service.SaisonnierService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-// SaisonnierController.java
 @RestController
 @RequestMapping("/api/saisonniers")
-@CrossOrigin("*")   // adapte selon ton env
+@CrossOrigin("*")
 @RequiredArgsConstructor
 public class SaisonnierController {
 
     private final SaisonnierService service;
 
+    // =========================
+    // UTILITAIRE
+    // =========================
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        return (ip != null && !ip.isEmpty()) ? ip.split(",")[0] : request.getRemoteAddr();
+    }
+
+    private String getCurrentUserEmail() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new RuntimeException("Utilisateur non authentifié");
+        }
+        return auth.getName();
+    }
+
+    // =========================
+    // READ
+    // =========================
     @GetMapping
-    public ResponseEntity<List<SaisonnierDTO>> getAll() {
-        return ResponseEntity.ok(service.findAll());
+    public ResponseEntity<List<SaisonnierDTO>> getAll(HttpServletRequest request) {
+        String email = getCurrentUserEmail();
+        return ResponseEntity.ok(service.findAll(email, getClientIp(request)));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<SaisonnierDTO> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(service.findById(id));
+    public ResponseEntity<SaisonnierDTO> getById(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        String email = getCurrentUserEmail();
+        return ResponseEntity.ok(service.findById(id, email, getClientIp(request)));
     }
 
     @GetMapping("/by-campagne-region")
     public ResponseEntity<List<SaisonnierDTO>> getByCampagneAndRegion(
             @RequestParam Long campagneId,
-            @RequestParam Long regionId) {
-        return ResponseEntity.ok(service.findByCampagneAndRegion(campagneId, regionId));
+            @RequestParam Long regionId,
+            HttpServletRequest request) {
+        String email = getCurrentUserEmail();
+        return ResponseEntity.ok(service.findByCampagneAndRegion(campagneId, regionId, email, getClientIp(request)));
     }
 
     @GetMapping("/by-campagne-structure")
     public ResponseEntity<List<SaisonnierDTO>> getByCampagneAndStructure(
             @RequestParam Long campagneId,
-            @RequestParam Long structureId) {
-        return ResponseEntity.ok(service.findByCampagneAndStructure(campagneId, structureId));
+            @RequestParam Long structureId,
+            HttpServletRequest request) {
+        String email = getCurrentUserEmail();
+        return ResponseEntity.ok(service.findByCampagneAndStructure(campagneId, structureId, email, getClientIp(request)));
+    }
+
+    // =========================
+    // UPDATE
+    // =========================
+    @PatchMapping("/{id}/absences")
+    public ResponseEntity<SaisonnierDTO> updateAbsences(
+            @PathVariable Long id,
+            @RequestBody UpdatePaieRequest req,
+            HttpServletRequest request) {
+        String email = getCurrentUserEmail();
+        return ResponseEntity.ok(service.updateAbsences(id, req, email, getClientIp(request)));
     }
 }

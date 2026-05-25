@@ -15,6 +15,10 @@ public class ParentAutoriseService {
         this.parentRepo = parentRepo;
     }
 
+    public List<ParentAutorise> getParentsByCampagne(Long campagneId) {
+        return parentRepo.findByCampagneId(campagneId);
+    }
+
     // 📋 1. Get all parents
     public List<ParentAutorise> getAllParents() {
         return parentRepo.findAll();

@@ -1,6 +1,8 @@
 package com.example.TT_BackEnd.service;
 
 import com.example.TT_BackEnd.dto.SaisonnierDTO;
+import com.example.TT_BackEnd.dto.UpdatePaieRequest;
+import com.example.TT_BackEnd.entity.Saisonnier;
 import com.example.TT_BackEnd.repository.AffectationRepository;
 import com.example.TT_BackEnd.repository.SaisonnierRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,44 +13,63 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.stream.Collectors;
 
-// SaisonnierService.java
 @Service
 @RequiredArgsConstructor
-
 public class SaisonnierService {
 
     private final SaisonnierRepository repo;
-    private final AffectationRepository affectationRepo;  // ← ajouter
+    private final AffectationRepository affectationRepo;
+    private final AuditLogService auditLogService;  // 🆕
 
-
-
-    public List<SaisonnierDTO> findAll() {
-        return repo.findAll()
+    // ====================
+    // READ
+    // ====================
+    public List<SaisonnierDTO> findAll(String email, String ip) {
+        List<SaisonnierDTO> result = repo.findAll()
                 .stream()
-                .map(SaisonnierDTO::from)
+                .map(s -> SaisonnierDTO.from(s, null))
                 .collect(Collectors.toList());
+
+        // 🆕 AUDIT
+        auditLogService.log(email, "READ_ALL", "Saisonnier",
+                null, null, result.size() + " résultats", ip, "SUCCESS");
+
+        return result;
     }
 
-    public SaisonnierDTO findById(Long id) {
-        return repo.findById(id)
-                .map(SaisonnierDTO::from)
+    public SaisonnierDTO findById(Long id, String email, String ip) {
+        SaisonnierDTO result = repo.findById(id)
+                .map(s -> SaisonnierDTO.from(s, null))
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Saisonnier " + id + " introuvable"));
+
+        // 🆕 AUDIT
+        auditLogService.log(email, "READ", "Saisonnier",
+                id, null, result, ip, "SUCCESS");
+
+        return result;
     }
 
-    public List<SaisonnierDTO> findByCampagneAndRegion(Long campagneId, Long regionId) {
-        return repo.findAll()
+    public List<SaisonnierDTO> findByCampagneAndRegion(Long campagneId, Long regionId, String email, String ip) {
+        List<SaisonnierDTO> result = repo.findAll()
                 .stream()
                 .filter(s -> s.getRegion() != null && s.getRegion().getId().equals(regionId))
-                .filter(s -> s.getCandidatures() != null && s.getCandidatures()
-                        .stream()
-                        .anyMatch(c -> c.getCampagne().getId().equals(campagneId)))
-                .map(SaisonnierDTO::from)
+                .flatMap(s -> s.getCandidatures().stream()
+                        .filter(c -> c.getCampagne().getId().equals(campagneId)
+                                && c.getStatut().name().equals("ACCEPTEE"))
+                        .map(c -> SaisonnierDTO.from(s, c.getStatut().name())))
                 .collect(Collectors.toList());
+
+        // 🆕 AUDIT
+        auditLogService.log(email, "READ_BY_CAMPAGNE_REGION", "Saisonnier",
+                campagneId, null,
+                result.size() + " résultats — regionId: " + regionId,
+                ip, "SUCCESS");
+
+        return result;
     }
 
-    public List<SaisonnierDTO> findByCampagneAndStructure(Long campagneId, Long structureId) {
-        // Les saisonniers affectés à cette structure pour cette campagne
+    public List<SaisonnierDTO> findByCampagneAndStructure(Long campagneId, Long structureId, String email, String ip) {
         List<Long> saisonnierIds = affectationRepo.findAll()
                 .stream()
                 .filter(a -> a.getCampagne().getId().equals(campagneId)
@@ -56,12 +77,43 @@ public class SaisonnierService {
                 .map(a -> a.getSaisonnier().getId())
                 .collect(Collectors.toList());
 
-        return repo.findAllById(saisonnierIds)
+        List<SaisonnierDTO> result = repo.findAllById(saisonnierIds)
                 .stream()
-                .map(SaisonnierDTO::from)
+                .flatMap(s -> s.getCandidatures().stream()
+                        .filter(c -> c.getCampagne().getId().equals(campagneId)
+                                && c.getStatut().name().equals("ACCEPTEE"))
+                        .map(c -> SaisonnierDTO.from(s, c.getStatut().name())))
                 .collect(Collectors.toList());
+
+        // 🆕 AUDIT
+        auditLogService.log(email, "READ_BY_CAMPAGNE_STRUCTURE", "Saisonnier",
+                campagneId, null,
+                result.size() + " résultats — structureId: " + structureId,
+                ip, "SUCCESS");
+
+        return result;
     }
 
+    // ====================
+    // UPDATE
+    // ====================
+    public SaisonnierDTO updateAbsences(Long id, UpdatePaieRequest req, String email, String ip) {
+        Saisonnier s = repo.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Saisonnier " + id + " introuvable"));
 
+        // snapshot avant
+        String snapshotAvant = "absences: " + s.getAbsences();
 
+        if (req.getAbsences() != null) s.setAbsences(req.getAbsences());
+        repo.save(s);
+
+        SaisonnierDTO result = SaisonnierDTO.from(s, null);
+
+        // 🆕 AUDIT
+        auditLogService.log(email, "UPDATE_ABSENCES", "Saisonnier",
+                id, snapshotAvant, "absences: " + s.getAbsences(), ip, "SUCCESS");
+
+        return result;
+    }
 }

@@ -15,6 +15,11 @@ public class ParentAutoriseController {
         this.parentService = parentService;
     }
 
+
+    @GetMapping("/by-campagne/{campagneId}")
+    public ResponseEntity<?> getParentsByCampagne(@PathVariable Long campagneId) {
+        return ResponseEntity.ok(parentService.getParentsByCampagne(campagneId));
+    }
     // 📋 GET ALL
     @GetMapping
     public ResponseEntity<?> getAllParents() {

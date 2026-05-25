@@ -1,5 +1,6 @@
 package com.example.TT_BackEnd.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -33,6 +34,7 @@ public class Campagne {
             joinColumns = @JoinColumn(name = "campagne_id"),
             inverseJoinColumns = @JoinColumn(name = "region_id")
     )
+    @JsonIgnore
     private List<Region> regions;
 
     @ManyToOne
@@ -40,5 +42,6 @@ public class Campagne {
     private Utilisateur createur;
 
     @OneToMany(mappedBy = "campagne", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<DocumentCampagne> documents;
 }

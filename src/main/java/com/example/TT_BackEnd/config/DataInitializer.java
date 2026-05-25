@@ -20,9 +20,9 @@ public class DataInitializer implements CommandLineRunner {
     private final EmailServiceImpl emailService; // ✅ Injecter le service email
 
     private static final Integer SUPERADMIN_MATRICULE = 74151;
-    private static final String SUPERADMIN_EMAIL      = "bassem.abidi@tunisietelecom.tn";
-    private static final String SUPERADMIN_NOM        = "ABIDI";
-    private static final String SUPERADMIN_PRENOM     = "Bassem";
+    private static final String SUPERADMIN_EMAIL      = "azizchahlaoui7@gmail.com";
+    private static final String SUPERADMIN_NOM        = "CHAHLAOUI";
+    private static final String SUPERADMIN_PRENOM     = "Aziz";
 
     @Override
     public void run(String... args) {

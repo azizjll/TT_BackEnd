@@ -16,6 +16,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -76,24 +77,51 @@ public class AuthService {
      */
     public String signinAdministrateur(SigninAdministrateurRequest request) {
 
-        Utilisateur user = userRepository.findByMatricule(request.getMatricule())
-                .orElseThrow(() ->
-                        new RuntimeException("Matricule introuvable")
-                );
+        System.out.println("=== SIGNIN DEBUG ===");
+        System.out.println("Matricule reçu : " + request.getMatricule());
 
-        var auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        user.getEmail(),
-                        request.getPassword()
-                )
-        );
+        List<Utilisateur> users = userRepository.findAllByMatricule(request.getMatricule());
+        System.out.println("Nombre d'utilisateurs trouvés : " + users.size());
 
-        UserDetails userDetails = (UserDetails) auth.getPrincipal();
+        if (users.isEmpty()) {
+            throw new RuntimeException("Matricule introuvable");
+        }
 
-        return jwtUtils.generateToken(userDetails);
+        Utilisateur user;
+
+        if (users.size() > 1) {
+            System.out.println("Plusieurs users, filtrage sur campagne ACTIVE...");
+            for (Utilisateur u : users) {
+                System.out.println("  - user id=" + u.getId()
+                        + " campagne=" + (u.getCampagne() != null ? u.getCampagne().getStatut() : "NULL"));
+            }
+
+            user = users.stream()
+                    .filter(u -> u.getCampagne() != null
+                            && u.getCampagne().getStatut() == StatutCampagne.ACTIVE)
+                    .findFirst()
+                    .orElseThrow(() -> new RuntimeException("Aucune campagne active pour cet utilisateur."));
+        } else {
+            user = users.get(0);
+        }
+
+        System.out.println("User sélectionné : " + user.getEmail() + " | enabled=" + user.getEnabled());
+
+        try {
+            var auth = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            user.getEmail(),
+                            request.getPassword()
+                    )
+            );
+            UserDetails userDetails = (UserDetails) auth.getPrincipal();
+            return jwtUtils.generateToken(userDetails);
+
+        } catch (Exception e) {
+            System.out.println("Erreur auth Spring Security : " + e.getMessage());
+            throw e;
+        }
     }
-
-
 
     // -------------------- VERIFY EMAIL --------------------
     public void verifyToken(String tokenStr) {
@@ -157,8 +185,25 @@ public class AuthService {
 
     // -------------------- LOAD USER FOR SPRING SECURITY --------------------
     public UserDetails loadUserByUsername(String email) {
-        Utilisateur utilisateur = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+        // Récupérer tous les users avec cet email
+        List<Utilisateur> users = userRepository.findAllByEmail(email);
+
+        if (users.isEmpty()) {
+            throw new RuntimeException("Utilisateur non trouvé");
+        }
+
+        Utilisateur utilisateur;
+
+        if (users.size() > 1) {
+            // Prendre celui de la campagne ACTIVE
+            utilisateur = users.stream()
+                    .filter(u -> u.getCampagne() != null
+                            && u.getCampagne().getStatut() == StatutCampagne.ACTIVE)
+                    .findFirst()
+                    .orElse(users.get(0)); // fallback sur le premier si aucune campagne active
+        } else {
+            utilisateur = users.get(0);
+        }
 
         return User.builder()
                 .username(utilisateur.getEmail())

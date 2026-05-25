@@ -20,16 +20,13 @@ public class CampagneService {
     private final RegionRepository regionRepository;
     private final ExcelCampagneParser excelCampagneParser;
     private final UtilisateurRepository utilisateurRepository;
-    private final StructureRepository structureRepository; // ← AJOUTER
-
-
-
+    private final StructureRepository structureRepository;
+    private final AuditLogService auditLogService;
 
     // ====================
     // CREATE
     // ====================
-    public Campagne creerCampagne(CampagneRequestDTO dto, String emailCreateur) {
-        // Récupérer l'utilisateur connecté
+    public Campagne creerCampagne(CampagneRequestDTO dto, String emailCreateur, String ip) {
         Utilisateur createur = utilisateurRepository.findByEmail(emailCreateur)
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
 
@@ -45,24 +42,26 @@ public class CampagneService {
         campagne.setCode(dto.getCode());
         campagne.setRegions(regions);
         campagne.setStatut(StatutCampagne.BROUILLON);
-        campagne.setCreateur(createur);   // ← association
+        campagne.setCreateur(createur);
 
-        return campagneRepository.save(campagne);
+        Campagne saved = campagneRepository.save(campagne);
+
+        auditLogService.log(emailCreateur, "CREATE", "Campagne",
+                saved.getId(), null, saved, ip, "SUCCESS");
+
+        return saved;
     }
 
-    /**
-     * Crée une campagne et l'affecte automatiquement aux régions extraites du fichier Excel.
-     */
-    public Campagne creerCampagneAvecExcel(CampagneRequestDTO dto, MultipartFile fichierExcel, String emailCreateur) {
-
+    // ====================
+    // CREATE AVEC EXCEL
+    // ====================
+    public Campagne creerCampagneAvecExcel(CampagneRequestDTO dto, MultipartFile fichierExcel, String emailCreateur, String ip) {
         Utilisateur createur = utilisateurRepository.findByEmail(emailCreateur)
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable : " + emailCreateur));
 
-        // 1. Extraire les régions
         List<Region> regions = excelCampagneParser.extraireRegions(fichierExcel);
         if (regions.isEmpty()) throw new RuntimeException("Aucune région valide");
 
-        // 2. Créer et sauvegarder la campagne
         Campagne campagne = new Campagne();
         campagne.setLibelle(dto.getLibelle());
         campagne.setDateDebut(dto.getDateDebut());
@@ -74,17 +73,20 @@ public class CampagneService {
         campagne.setStatut(StatutCampagne.BROUILLON);
         campagne.setCreateur(createur);
 
-        Campagne campagneSauvee = campagneRepository.save(campagne); // ← sauvegarder d'abord
+        Campagne campagneSauvee = campagneRepository.save(campagne);
 
-        // 3. Extraire les structures et les lier à la campagne
         List<Structure> structures = excelCampagneParser.extraireStructures(fichierExcel);
-        structures.forEach(s -> s.setCampagne(campagneSauvee)); // ← associer la campagne
-        structureRepository.saveAll(structures); // ← sauvegarder avec campagne_id
+        structures.forEach(s -> s.setCampagne(campagneSauvee));
+        structureRepository.saveAll(structures);
 
         System.out.println("=== " + structures.size() + " structures sauvées pour campagne ID: " + campagneSauvee.getId());
 
+        auditLogService.log(emailCreateur, "CREATE_EXCEL", "Campagne",
+                campagneSauvee.getId(), null, campagneSauvee, ip, "SUCCESS");
+
         return campagneSauvee;
-    }    // ====================
+    }
+
     // ====================
     // READ
     // ====================
@@ -104,21 +106,22 @@ public class CampagneService {
     // ====================
     // UPDATE
     // ====================
-    public Campagne mettreAJourCampagne(Long id, CampagneRequestDTO dto) {
-        Campagne campagne = campagneRepository.findById(id)
+    public Campagne mettreAJourCampagne(Long id, CampagneRequestDTO dto, String email, String ip) {
+        Campagne avant = campagneRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Campagne introuvable"));
 
-        if (dto.getLibelle() != null) campagne.setLibelle(dto.getLibelle());
-        if (dto.getDateDebut() != null) campagne.setDateDebut(dto.getDateDebut());
-        if (dto.getDateFin() != null) campagne.setDateFin(dto.getDateFin());
-        if (dto.getBudget() != null) campagne.setBudget(dto.getBudget());
-        if (dto.getDescription() != null) campagne.setDescription(dto.getDescription());
-        if (dto.getCode() != null) campagne.setCode(dto.getCode());
+        String snapshotAvant = avant.getLibelle() + " | " + avant.getStatut();
 
-        // ← AJOUTER : mise à jour du statut
+        if (dto.getLibelle() != null) avant.setLibelle(dto.getLibelle());
+        if (dto.getDateDebut() != null) avant.setDateDebut(dto.getDateDebut());
+        if (dto.getDateFin() != null) avant.setDateFin(dto.getDateFin());
+        if (dto.getBudget() != null) avant.setBudget(dto.getBudget());
+        if (dto.getDescription() != null) avant.setDescription(dto.getDescription());
+        if (dto.getCode() != null) avant.setCode(dto.getCode());
+
         if (dto.getStatut() != null) {
             try {
-                campagne.setStatut(StatutCampagne.valueOf(dto.getStatut().toUpperCase()));
+                avant.setStatut(StatutCampagne.valueOf(dto.getStatut().toUpperCase()));
             } catch (IllegalArgumentException e) {
                 throw new RuntimeException("Statut invalide : " + dto.getStatut());
             }
@@ -126,40 +129,59 @@ public class CampagneService {
 
         if (dto.getRegionIds() != null && !dto.getRegionIds().isEmpty()) {
             List<Region> regions = regionRepository.findAllById(dto.getRegionIds());
-            campagne.setRegions(regions);
+            avant.setRegions(regions);
         }
 
-        return campagneRepository.save(campagne);
+        Campagne apres = campagneRepository.save(avant);
+
+        auditLogService.log(email, "UPDATE", "Campagne",
+                id, snapshotAvant, apres, ip, "SUCCESS");
+
+        return apres;
     }
 
     // ====================
     // DELETE
     // ====================
-    public void supprimerCampagne(Long id) {
+    public void supprimerCampagne(Long id, String email, String ip) {
         Campagne campagne = campagneRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Campagne introuvable"));
+
+        auditLogService.log(email, "DELETE", "Campagne",
+                id, campagne, null, ip, "SUCCESS");
+
         campagneRepository.delete(campagne);
     }
 
     // ====================
     // LOGIQUE METIER
     // ====================
-    public Campagne activerCampagne(Long id) {
+    public Campagne activerCampagne(Long id, String email, String ip) {
         Campagne campagne = getCampagneParId(id);
         if (campagne.getStatut() != StatutCampagne.BROUILLON) {
             throw new RuntimeException("Seulement les campagnes en brouillon peuvent être activées");
         }
         campagne.setStatut(StatutCampagne.ACTIVE);
-        return campagneRepository.save(campagne);
+        Campagne saved = campagneRepository.save(campagne);
+
+        auditLogService.log(email, "ACTIVER", "Campagne",
+                id, StatutCampagne.BROUILLON, StatutCampagne.ACTIVE, ip, "SUCCESS");
+
+        return saved;
     }
 
-    public Campagne cloturerCampagne(Long id) {
+    public Campagne cloturerCampagne(Long id, String email, String ip) {
         Campagne campagne = getCampagneParId(id);
         if (campagne.getStatut() != StatutCampagne.ACTIVE) {
             throw new RuntimeException("Seules les campagnes actives peuvent être clôturées");
         }
         campagne.setStatut(StatutCampagne.CLOTUREE);
-        return campagneRepository.save(campagne);
+        Campagne saved = campagneRepository.save(campagne);
+
+        auditLogService.log(email, "CLOTURER", "Campagne",
+                id, StatutCampagne.ACTIVE, StatutCampagne.CLOTUREE, ip, "SUCCESS");
+
+        return saved;
     }
 
     public List<Campagne> getCampagnesParCreateur(String email) {
