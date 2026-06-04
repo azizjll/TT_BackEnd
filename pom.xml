@@ -89,6 +89,9 @@
 			<artifactId>jackson-datatype-jsr310</artifactId>
 		</dependency>
 
+
+
+
 		<!-- JJWT library for JWT support -->
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
@@ -181,6 +184,14 @@
 				</configuration>
 			</plugin>
 
+		</plugins>
+
+		<plugins>
+			<plugin>
+				<groupId>org.sonarsource.scanner.maven</groupId>
+				<artifactId>sonar-maven-plugin</artifactId>
+				<version>3.10.0.2594</version>
+			</plugin>
 		</plugins>
 	</build>
 
