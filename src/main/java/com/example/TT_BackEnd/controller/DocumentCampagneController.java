@@ -13,7 +13,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin/documents-campagne")
 @RequiredArgsConstructor
-@CrossOrigin("*")
 public class DocumentCampagneController {
 
     private final DocumentCampagneService service;

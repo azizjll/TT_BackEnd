@@ -19,7 +19,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/superadmin")
 @RequiredArgsConstructor
-@CrossOrigin("*")
 public class SuperAdminController {
 
     private final ExcelImportService excelImportService;

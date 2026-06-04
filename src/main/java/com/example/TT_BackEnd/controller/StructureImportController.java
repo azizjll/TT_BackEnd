@@ -15,7 +15,6 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/structures")
-@CrossOrigin("*")
 public class StructureImportController {
 
     private final ExcelReaderService excelReaderService;

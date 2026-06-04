@@ -177,61 +177,83 @@ public class EmailServiceImpl {
         }
     }
 
-    public void sendSuperAdminWelcomeEmail(String to, String nom, String prenom, Integer matricule) {
-        String sujet = "🔐 Bienvenue — Vos identifiants SuperAdmin";
-
+    // Ajouter le paramètre tempPassword
+    public void sendSuperAdminWelcomeEmail(String to, String nom, String prenom,
+                                           Integer matricule, String tempPassword) {
         String contenu = """
         Bonjour %s %s,
 
         Votre compte SuperAdmin a été créé avec succès.
 
         ── Vos identifiants de connexion ──
-        
-        🪪 Matricule  : %d
-        🔑 Mot de passe : %d
+        🪪 Matricule    : %d
+        🔑 Mot de passe : %s
 
-        ⚠️ Pour des raisons de sécurité, veuillez changer votre mot de passe dès votre première connexion.
+        ⚠️ Mot de passe temporaire — à changer dès la première connexion.
 
         Cordialement,
         Système de gestion des saisonniers
-        """.formatted(prenom, nom,  matricule, matricule);
+        """.formatted(prenom, nom, matricule, tempPassword);
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom("azizchahlaoui7@gmail.com");
         message.setTo(to);
-        message.setSubject(sujet);
+        message.setSubject("🔐 Bienvenue — Vos identifiants SuperAdmin");
         message.setText(contenu);
         mailSender.send(message);
     }
-    public void sendWelcomeRHEmail(String to, String nom, String prenom, Integer matricule) {
-        String sujet = "🎉 Bienvenue sur la plateforme de gestion des saisonniers";
 
+    public void sendWelcomeRSEmail(String to, String nom, String prenom,
+                                   Integer matricule, String tempPassword) {
+        String contenu = """
+    Bonjour %s %s,
+
+    Votre compte Responsable Structure a été créé avec succès.
+
+    ── Vos identifiants de connexion ──
+    🪪 Matricule    : %d
+    🔑 Mot de passe : %s
+
+    ⚠️ Mot de passe temporaire — à changer dès la première connexion.
+
+    Cordialement,
+    Système de gestion des saisonniers
+    """.formatted(prenom, nom, matricule, tempPassword);
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("azizchahlaoui7@gmail.com");
+        message.setTo(to);
+        message.setSubject("🏢 Bienvenue — Vos identifiants Responsable Structure");
+        message.setText(contenu);
+        mailSender.send(message);
+    }
+
+
+    // Ajouter le paramètre tempPassword
+    public void sendWelcomeRHEmail(String to, String nom, String prenom,
+                                   Integer matricule, String tempPassword) {
         String contenu = """
         Bonjour %s %s,
 
-        Votre compte a été créé avec succès sur la plateforme de gestion des saisonniers.
+        Votre compte a été créé avec succès.
 
         ── Vos identifiants de connexion ──
-        📧 Email      : %s
-        🔑 Mot de passe : %d
+        🪪 Matricule    : %d
+        🔑 Mot de passe : %s
 
-        🔗 Accéder à la plateforme :
-        http://localhost:4200/home-ge
-
-        ⚠️ Votre mot de passe est votre matricule. Veuillez le changer dès votre première connexion.
+        ⚠️ Mot de passe temporaire — à changer dès la première connexion.
 
         Cordialement,
         Système de gestion des saisonniers
-        """.formatted(prenom, nom, to, matricule);
+        """.formatted(prenom, nom, matricule, tempPassword);  // ← tempPassword ici
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom("azizchahlaoui7@gmail.com");
         message.setTo(to);
-        message.setSubject(sujet);
+        message.setSubject("🎉 Bienvenue — Vos identifiants de connexion");
         message.setText(contenu);
         mailSender.send(message);
     }
-
     public void sendCandidatureAccepteeEmail(String to, String prenomNom) {
         String sujet = "✅ Candidature acceptée — Tunisie Telecom";
 

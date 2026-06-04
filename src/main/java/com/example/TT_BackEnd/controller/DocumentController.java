@@ -11,7 +11,6 @@ import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/documents")
-@CrossOrigin("*")
 public class DocumentController {
 
     private final CloudinaryService cloudinaryService;

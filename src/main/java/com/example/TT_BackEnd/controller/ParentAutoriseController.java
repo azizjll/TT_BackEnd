@@ -6,7 +6,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/parents")
-@CrossOrigin("*")
 public class ParentAutoriseController {
 
     private final ParentAutoriseService parentService;

@@ -13,6 +13,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -76,17 +77,86 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**" ,"/swagger-ui/**","/files/**",
-                                "/v3/api-docs/**",
-                                "/swagger-ui.html","/api/candidatures/**","/api/affectations/**","/structures/**","/api/structures/**","/api/documents/**","/api/saisonniers/**","/api/admin/documents-campagne/**","/api/parents/**","/api/**","/superadmin/**","/api/audit/**").permitAll()
-                        .requestMatchers("/api/campagnes/**").authenticated()
 
+                // ✅ En-têtes de sécurité
+                .headers(headers -> headers
+
+                        // CSP active (sans reportOnly)
+                        .contentSecurityPolicy(csp -> csp
+                                .policyDirectives(
+                                        "default-src 'self'; " +
+                                                "script-src 'self'; " +
+                                                "style-src 'self' 'unsafe-inline'; " +
+                                                "img-src 'self' data:; " +
+                                                "font-src 'self'; " +
+                                                "connect-src 'self'; " +
+                                                "frame-ancestors 'none'; " +
+                                                "form-action 'self';"
+                                )
+                        )
+
+                        // ✅ Anti-Clickjacking
+                        .frameOptions(frame -> frame.deny())
+
+                        // ✅ X-Content-Type-Options
+                        .contentTypeOptions(Customizer.withDefaults())
+                )
+
+                .authorizeHttpRequests(auth -> auth
+
+                        // ✅ Routes publiques — uniquement ce qui est nécessaire
+                        .requestMatchers(
+                                "/auth/**",
+                                "/api/campagnes/actives",
+                                "/api/structures/campagne-active/publique",
+                                "/api/candidatures/parent-by-matricule",
+                                "/api/candidatures/depot",
+                                "/files/**"
+
+
+                        ).permitAll()
+
+                        // ✅ Routes SUPERADMIN — réservées au rôle SUPERADMIN uniquement
+                        .requestMatchers("/superadmin/**")
+                        .hasAuthority("SUPERADMIN")
+
+                        // ✅ Routes ADMIN
+                        .requestMatchers(
+                                "/api/admin/**",
+                                "/api/campagnes/**"
+
+                        ).hasAnyAuthority("ADMIN", "SUPERADMIN","RH_REGIONAL")
+
+                        // ✅ Routes utilisateurs authentifiés
+                        .requestMatchers(
+
+                                "/api/candidatures/**",
+                                "/api/affectations/**",
+                                "/api/saisonniers/**",
+                                "/api/parents/**",
+                                "/api/documents/**",
+                                "/api/structures/**",
+                                "/v3/api-docs/**",
+                                "/structures/**",
+                                "/swagger-ui/**",
+                                "/api/parents/**",
+
+                                "/swagger-ui.html"
+
+                        ).authenticated()
+
+                        // ✅ Tout le reste → authentification requise
                         .anyRequest().authenticated()
                 )
-                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                .sessionManagement(sess -> sess
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
                 .authenticationProvider(authenticationProvider())
-                .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(
+                        jwtAuthenticationFilter(),
+                        UsernamePasswordAuthenticationFilter.class
+                );
 
         return http.build();
     }
@@ -99,7 +169,7 @@ public class SecurityConfig {
                 "https://tt-front-end-amber.vercel.app"
         ));
         config.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS","PATCH"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -12,7 +12,6 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/structures")
-@CrossOrigin("*")
 public class StructureController {
 
     private final StructureRepository structureRepository;

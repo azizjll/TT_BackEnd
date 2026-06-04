@@ -17,7 +17,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/campagnes")
 @RequiredArgsConstructor
-@CrossOrigin("*")
 public class CampagneController {
 
     private final CampagneService campagneService;
@@ -45,7 +44,7 @@ public class CampagneController {
     // CREATE
     // =========================
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+
     public Campagne creerCampagne(
             @RequestBody CampagneRequestDTO dto,
 
@@ -55,7 +54,7 @@ public class CampagneController {
     }
 
     @PostMapping(value = "/avec-excel", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('ADMIN')")
+
     public Campagne creerCampagneAvecExcel(
             @RequestPart("campagne") CampagneRequestDTO dto,
             @RequestPart("fichier") MultipartFile fichierExcel,
@@ -69,19 +68,17 @@ public class CampagneController {
     // READ
     // =========================
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','RH_REGIONAL')")
     public List<Campagne> getToutesCampagnes() {
         return campagneService.getToutesCampagnes();
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','RH_REGIONAL')")
+
     public Campagne getCampagneParId(@PathVariable Long id) {
         return campagneService.getCampagneParId(id);
     }
 
     @GetMapping("/actives")
-    @PreAuthorize("hasAnyRole('ADMIN','RH_REGIONAL')")
     public List<Campagne> getCampagnesActives() {
         return campagneService.getCampagnesActives();
     }
@@ -90,7 +87,6 @@ public class CampagneController {
     // UPDATE
     // =========================
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public Campagne mettreAJourCampagne(
             @PathVariable Long id,
             @RequestBody CampagneRequestDTO dto,
@@ -104,7 +100,6 @@ public class CampagneController {
     // DELETE
     // =========================
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public void supprimerCampagne(
             @PathVariable Long id,
             
@@ -117,7 +112,6 @@ public class CampagneController {
     // LOGIQUE MÉTIER
     // =========================
     @PutMapping("/{id}/activer")
-    @PreAuthorize("hasRole('ADMIN')")
     public Campagne activerCampagne(
             @PathVariable Long id,
             
@@ -127,7 +121,6 @@ public class CampagneController {
     }
 
     @PutMapping("/{id}/cloturer")
-    @PreAuthorize("hasRole('ADMIN')")
     public Campagne cloturerCampagne(
             @PathVariable Long id,
             
@@ -137,7 +130,6 @@ public class CampagneController {
     }
 
     @GetMapping("/mes-campagnes")
-    @PreAuthorize("hasRole('ADMIN')")
     public List<Campagne> getMesCampagnes(
             @AuthenticationPrincipal UserDetails userDetails) {
         return campagneService.getCampagnesParCreateur(userDetails.getUsername());

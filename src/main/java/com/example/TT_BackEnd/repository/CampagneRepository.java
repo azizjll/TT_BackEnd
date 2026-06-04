@@ -2,6 +2,7 @@ package com.example.TT_BackEnd.repository;
 
 import com.example.TT_BackEnd.entity.Campagne;
 import com.example.TT_BackEnd.entity.StatutCampagne;
+import com.example.TT_BackEnd.entity.Utilisateur;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -24,5 +25,6 @@ public interface CampagneRepository extends JpaRepository<Campagne, Long> {
     List<Campagne> findByStatutAndCreateurId(StatutCampagne statut, Long createurId);
 
 
+    List<Campagne> findByCreateur(Utilisateur createur);
 
 }

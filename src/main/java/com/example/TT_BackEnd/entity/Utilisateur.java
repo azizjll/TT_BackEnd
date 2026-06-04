@@ -21,6 +21,9 @@ public class Utilisateur {
     private String email;
 
 
+    @Column(nullable = false)
+    private boolean mustChangePassword = false;
+
     private Integer cin;
 
 
@@ -31,6 +34,7 @@ public class Utilisateur {
     @Enumerated(EnumType.STRING)
     private RoleType role;
 
+    @JsonIgnore
     private String password;
 
     private Boolean enabled = false; // validation par admin ou verification email
@@ -54,7 +58,7 @@ public class Utilisateur {
 
 
     // Dans Utilisateur.java — ajouter :
-    @OneToOne
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "saisonnier_id")
     @JsonIgnore
     private Saisonnier saisonnier;
