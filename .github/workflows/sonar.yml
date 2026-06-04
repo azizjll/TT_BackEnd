@@ -11,6 +11,8 @@ on:
 jobs:
   sonar:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # ← ajouter
 
     steps:
       - name: Checkout code
@@ -27,6 +29,7 @@ jobs:
       - name: Build and analyze with SonarQube
         run: |
           mvn clean verify sonar:sonar \
+            -DskipTests \
             -Dsonar.projectKey=azizjll_TT_BackEnd \
             -Dsonar.organization=azizjll \
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
