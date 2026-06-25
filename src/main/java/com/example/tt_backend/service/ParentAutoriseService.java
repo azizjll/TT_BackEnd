@@ -6,6 +6,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+
+import java.util.NoSuchElementException;
+
 @Service
 public class ParentAutoriseService {
 
@@ -19,54 +22,53 @@ public class ParentAutoriseService {
         return parentRepo.findByCampagneId(campagneId);
     }
 
-    // 📋 1. Get all parents
     public List<ParentAutorise> getAllParents() {
         return parentRepo.findAll();
     }
 
-    // 🔍 2. Get parent by ID
     public ParentAutorise getParentById(Long id) {
         return parentRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Parent non trouvé"));
+                .orElseThrow(() ->
+                        new NoSuchElementException("Parent non trouvé"));
     }
 
-    // ➕ 3. Ajouter parent
-    // ➕ 3. Ajouter parent
-    public ParentAutorise addParent(String nomPrenom, String matricule, int autorises) {
+    public ParentAutorise addParent(String nomPrenom, String matricule,String email, int autorises) {
 
         if (parentRepo.existsByMatricule(matricule)) {
-            throw new RuntimeException("Matricule déjà existant ❌");
+            throw new IllegalArgumentException("Matricule déjà existant");
         }
 
         ParentAutorise parent = new ParentAutorise();
         parent.setNomPrenom(nomPrenom);
         parent.setMatricule(matricule);
-        parent.setAutorises(autorises); // 🆕
-        parent.setUtilise(0);           // commence à 0
+        parent.setEmail(email);          // ✅ ajout
+        parent.setAutorises(autorises);
+        parent.setUtilise(0);
 
         return parentRepo.save(parent);
     }
 
-    // ✏️ 4. Modifier parent
-    public ParentAutorise updateParent(Long id, String nomPrenom, String matricule, int autorises, int utilise) {
+    public ParentAutorise updateParent(Long id, String nomPrenom,String email,
+                                       String matricule, int autorises, int utilise) {
 
         ParentAutorise parent = parentRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Parent non trouvé"));
+                .orElseThrow(() ->
+                        new NoSuchElementException("Parent non trouvé"));
 
         if (!parent.getMatricule().equals(matricule)
                 && parentRepo.existsByMatricule(matricule)) {
-            throw new RuntimeException("Matricule déjà utilisé ❌");
+            throw new IllegalArgumentException("Matricule déjà utilisé");
         }
 
         parent.setNomPrenom(nomPrenom);
         parent.setMatricule(matricule);
-        parent.setAutorises(autorises); // 🆕
-        parent.setUtilise(utilise);     // int maintenant
+        parent.setEmail(email);
+        parent.setAutorises(autorises);
+        parent.setUtilise(utilise);
 
         return parentRepo.save(parent);
     }
 
-    // ❌ 5. Supprimer (optionnel)
     public void deleteParent(Long id) {
         parentRepo.deleteById(id);
     }

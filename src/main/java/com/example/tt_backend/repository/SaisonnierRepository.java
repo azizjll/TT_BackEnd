@@ -11,9 +11,7 @@ import java.util.Optional;
 
 public interface SaisonnierRepository extends JpaRepository<Saisonnier, Long> {
 
-    List<Saisonnier> findByRegionId(Long regionId);
 
-    List<Saisonnier> findByRegion(Region region);
 
     @Query("SELECT s FROM Saisonnier s JOIN s.candidatures c WHERE c.statut = :statut AND s.region = :region")
     List<Saisonnier> findSaisonniersAcceptesParRegion(

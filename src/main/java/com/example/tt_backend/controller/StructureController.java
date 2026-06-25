@@ -1,24 +1,31 @@
-package com.example.tt_backend.controller;
+package com.example.tt_backend.controller; // ✅ S120
 
 import com.example.tt_backend.dto.StructureDTO;
+import com.example.tt_backend.dto.StructurePubliqueDTO;
 import com.example.tt_backend.entity.Structure;
+import com.example.tt_backend.exception.CampagneInvalideException;
 import com.example.tt_backend.repository.StructureRepository;
 import com.example.tt_backend.service.StructureService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.NoSuchElementException;
 
 @RestController
 @RequestMapping("/api/structures")
 public class StructureController {
 
+    // ✅ S106 — Logger
+    private static final Logger logger = LoggerFactory.getLogger(StructureController.class);
+
     private final StructureRepository structureRepository;
-    private final StructureService structureService; //
+    private final StructureService structureService;
 
-
-    public StructureController(StructureRepository structureRepository, StructureService structureService) {
+    public StructureController(StructureRepository structureRepository,
+                               StructureService structureService) {
         this.structureRepository = structureRepository;
         this.structureService = structureService;
     }
@@ -28,85 +35,67 @@ public class StructureController {
             @PathVariable Long regionId,
             @RequestParam(required = false) Long campagneId) {
 
-        List<Structure> structures;
+        List<Structure> structures = campagneId != null
+                ? structureRepository.findByRegionIdAndCampagneId(regionId, campagneId)
+                : structureRepository.findByRegionId(regionId);
 
-        if (campagneId != null) {
-            // Filtrer par région ET campagne
-            structures = structureRepository.findByRegionIdAndCampagneId(regionId, campagneId);
-        } else {
-            structures = structureRepository.findByRegionId(regionId);
-        }
-
+        // ✅ S6204 — .toList() au lieu de collect(Collectors.toList())
         return structures.stream()
                 .map(s -> new StructureDTO(
                         s.getId(), s.getNom(), s.getType().name(),
                         s.getRegion().getNom(), s.getAdresse(),
-                        s.getAutorises(), s.getRecrutes()
-                ))
-                .collect(Collectors.toList());
+                        s.getAutorises(), s.getRecrutes()))
+                .toList();
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity   <?> updateStructure(
+    // ✅ S1452 — ResponseEntity<String> au lieu de ResponseEntity<?>
+    // ✅ S112 — NoSuchElementException au lieu de RuntimeException
+    public ResponseEntity<String> updateStructure(
             @PathVariable Long id,
             @RequestBody StructureDTO dto) {
 
         Structure s = structureRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Structure non trouvée"));
+                .orElseThrow(() -> new NoSuchElementException("Structure non trouvée"));
 
         s.setNom(dto.getNom());
         s.setAdresse(dto.getAdresse());
         s.setAutorises(dto.getAutorises());
-        // Ne pas modifier recrutes depuis le DG — géré automatiquement
-
         structureRepository.save(s);
         return ResponseEntity.ok("Structure mise à jour");
     }
 
     @GetMapping("/campagne-active")
-    public ResponseEntity<?> getStructuresCampagneActive() {
+    // ✅ S1452 — ResponseEntity<List<StructureDTO>>
+    public ResponseEntity<List<StructureDTO>> getStructuresCampagneActive() {
         try {
             List<StructureDTO> structures = structureService.getStructuresCampagneActive()
                     .stream()
                     .map(s -> new StructureDTO(
-                            s.getId(),
-                            s.getNom(),
-                            s.getType().name(),
-                            s.getRegion().getNom(),
-                            s.getAdresse(),
-                            s.getAutorises(),
-                            s.getRecrutes()
-                    ))
-                    .collect(Collectors.toList());
-
-            return ResponseEntity.ok(structures);
-
-        } catch (Exception e) {
-            System.out.println("=== Erreur structures : " + e.getMessage());
-            return ResponseEntity.ok(List.of()); // [] au lieu de 500
-        }
-    }
-
-    // ← endpoint public, pas besoin de JWT pour le formulaire d'inscription
-    @GetMapping("/campagne-active/publique")
-    public ResponseEntity<?> getStructuresCampagneActivePublique() {
-        try {
-            List<StructureDTO> structures = structureService
-                    .getStructuresCampagneActivePublique()
-                    .stream()
-                    .map(s -> new StructureDTO(
                             s.getId(), s.getNom(), s.getType().name(),
                             s.getRegion().getNom(), s.getAdresse(),
-                            s.getAutorises(), s.getRecrutes()
-                    ))
-                    .collect(Collectors.toList());
+                            s.getAutorises(), s.getRecrutes()))
+                    // ✅ S6204
+                    .toList();
             return ResponseEntity.ok(structures);
         } catch (Exception e) {
-            return ResponseEntity.ok(List.of());
+            // ✅ S106 — logger au lieu de System.out
+            logger.error("=== Erreur structures : {}", e.getMessage(), e);
+            // ✅ S6863 — 500 au lieu de 200 pour une erreur serveur
+            return ResponseEntity.internalServerError().build();
         }
     }
 
-
-
-
+    @GetMapping("/campagne/{code}/publique")
+    public ResponseEntity<List<StructurePubliqueDTO>> getStructuresParCodeCampagne(
+            @PathVariable String code) {
+        try {
+            return ResponseEntity.ok(structureService.getStructuresParCodeCampagne(code));
+        } catch (CampagneInvalideException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            logger.error("=== Erreur structures par code campagne : {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
 }

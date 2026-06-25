@@ -1,24 +1,29 @@
 package com.example.tt_backend.service;
 
-
 import com.example.tt_backend.dto.*;
 import com.example.tt_backend.entity.*;
 import com.example.tt_backend.repository.*;
 import com.example.tt_backend.util.EmailServiceImpl;
 import com.example.tt_backend.util.JwtUtils;
-import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Random;
 import java.util.UUID;
 
+// ✅ S106 — @Slf4j fournit le logger
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -29,8 +34,13 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
-    private final EmailServiceImpl emailService; // ton service mail
+    private final EmailServiceImpl emailService;
     private final RegionRepository regionRepository;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+
+    // ✅ S2140 — Random instance pour nextInt()
+    private final Random random = new Random();
 
     // -------------------- SIGNUP --------------------
     public void signup(SignupRequest request) {
@@ -44,90 +54,73 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setEnabled(false);
 
-        // Récupération de la région si fournie
         if (request.getRegionId() != null) {
+            // ✅ S112 — NoSuchElementException au lieu de RuntimeException
             Region region = regionRepository.findById(request.getRegionId())
-                    .orElseThrow(() -> new RuntimeException("Region non trouvée"));
+                    .orElseThrow(() -> new NoSuchElementException("Region non trouvée"));
             user.setRegion(region);
         }
 
         userRepository.save(user);
 
-        // Création du token de vérification
         VerificationToken token = new VerificationToken();
         token.setToken(UUID.randomUUID().toString());
         token.setUser(user);
         token.setExpiryDate(LocalDateTime.now().plusDays(1));
         verificationTokenRepository.save(token);
 
-        // Envoi email
         emailService.sendVerificationEmail(user.getEmail(), token.getToken());
     }
 
-
-    // -------------------- SIGNIN avec Matricule OU Email --------------------
-    /**
-     * Le champ "identifiant" peut être :
-     *  - un matricule numérique (ex: "74151")  → on cherche par CIN
-     *  - un email (ex: "nom@tunisietelecom.tn") → on cherche par email
-     *
-     * Spring Security s'appuie sur l'email en interne (loadUserByUsername),
-     * donc on résout d'abord l'email réel avant d'authentifier.
-     */
+    // -------------------- SIGNIN ADMINISTRATEUR --------------------
     public String signinAdministrateur(SigninAdministrateurRequest request) {
 
-        System.out.println("=== SIGNIN DEBUG ===");
-        System.out.println("Matricule reçu : " + request.getMatricule());
+        // ✅ S106 — logger.debug au lieu de System.out.println
+        log.debug("=== SIGNIN DEBUG ===");
+        log.debug("Matricule reçu : {}", request.getMatricule());
 
         List<Utilisateur> users = userRepository.findAllByMatricule(request.getMatricule());
-        System.out.println("Nombre d'utilisateurs trouvés : " + users.size());
+        log.debug("Nombre d'utilisateurs trouvés : {}", users.size());
 
         if (users.isEmpty()) {
-            throw new RuntimeException("Matricule introuvable");
+            // ✅ S112
+            throw new NoSuchElementException("Matricule introuvable");
         }
 
         Utilisateur user;
 
         if (users.size() > 1) {
-            System.out.println("Plusieurs users, filtrage sur campagne ACTIVE...");
+            log.debug("Plusieurs users, filtrage sur campagne ACTIVE...");
             for (Utilisateur u : users) {
-                System.out.println("  - user id=" + u.getId()
-                        + " campagne=" + (u.getCampagne() != null ? u.getCampagne().getStatut() : "NULL"));
+                log.debug("  - user id={} campagne={}", u.getId(),
+                        u.getCampagne() != null ? u.getCampagne().getStatut() : "NULL");
             }
-
+            // ✅ S112
             user = users.stream()
                     .filter(u -> u.getCampagne() != null
                             && u.getCampagne().getStatut() == StatutCampagne.ACTIVE)
                     .findFirst()
-                    .orElseThrow(() -> new RuntimeException("Aucune campagne active pour cet utilisateur."));
+                    .orElseThrow(() -> new NoSuchElementException("Aucune campagne active pour cet utilisateur."));
         } else {
             user = users.get(0);
         }
 
-        System.out.println("User sélectionné : " + user.getEmail() + " | enabled=" + user.getEnabled());
+        log.debug("User sélectionné : {} | enabled={}", user.getEmail(), user.getEnabled());
 
-        try {
-            var auth = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            user.getEmail(),
-                            request.getPassword()
-                    )
-            );
-            UserDetails userDetails = (UserDetails) auth.getPrincipal();
-            return jwtUtils.generateToken(userDetails);
-
-        } catch (Exception e) {
-            System.out.println("Erreur auth Spring Security : " + e.getMessage());
-            throw e;
-        }
+        var auth = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(user.getEmail(), request.getPassword())
+        );
+        UserDetails userDetails = (UserDetails) auth.getPrincipal();
+        return jwtUtils.generateToken(userDetails);
     }
 
     // -------------------- VERIFY EMAIL --------------------
     public void verifyToken(String tokenStr) {
         VerificationToken token = verificationTokenRepository.findByToken(tokenStr)
-                .orElseThrow(() -> new RuntimeException("Token invalide"));
-        if(token.getExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Token expiré");
+                // ✅ S112
+                .orElseThrow(() -> new NoSuchElementException("Token invalide"));
+        if (token.getExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new IllegalStateException("Token expiré");
         }
         Utilisateur user = token.getUser();
         user.setEnabled(true);
@@ -135,74 +128,77 @@ public class AuthService {
         verificationTokenRepository.delete(token);
     }
 
-    // -------------------- SIGNIN + JWT --------------------
+    // -------------------- SIGNIN --------------------
     public String signin(SigninRequest request) {
         var auth = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
-
         UserDetails userDetails = (UserDetails) auth.getPrincipal();
         return jwtUtils.generateToken(userDetails);
     }
 
+    // -------------------- FORGOT PASSWORD --------------------
     @Transactional
     public void forgotPassword(String email) {
-
         Utilisateur user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+                // ✅ S112
+                .orElseThrow(() -> new NoSuchElementException("Utilisateur non trouvé"));
 
         PasswordResetToken token = passwordResetTokenRepository
                 .findByUser(user)
                 .orElse(new PasswordResetToken());
 
         token.setUser(user);
-        token.setToken(String.format("%06d", (int)(Math.random() * 1_000_000))); // ← seul changement
+        // ✅ S2140 — random.nextInt() au lieu de Math.random()
+        token.setToken(generateOtp());
         token.setExpiryDate(LocalDateTime.now().plusMinutes(15));
 
         passwordResetTokenRepository.save(token);
-
         emailService.sendPasswordResetEmail(user.getEmail(), token.getToken());
+    }
+
+    /**
+     * Génère un OTP à 6 chiffres cryptographiquement sûr.
+     * SecureRandom est conforme NIST SP 800-90A — safe pour usage sécurité.
+     */
+    private String generateOtp() {
+        int otp = SECURE_RANDOM.nextInt(1_000_000); // [0, 999999]
+        return String.format("%06d", otp);
     }
 
     // -------------------- RESET PASSWORD --------------------
     public void resetPassword(NewPasswordRequest request) {
         PasswordResetToken token = passwordResetTokenRepository.findByToken(request.getToken())
-                .orElseThrow(() -> new RuntimeException("Code invalide ou déjà utilisé"));
+                // ✅ S112
+                .orElseThrow(() -> new NoSuchElementException("Code invalide ou déjà utilisé"));
 
         if (token.getExpiryDate().isBefore(LocalDateTime.now())) {
-            passwordResetTokenRepository.delete(token); // nettoyage automatique
-            throw new RuntimeException("Code expiré, veuillez en demander un nouveau");
+            passwordResetTokenRepository.delete(token);
+            throw new IllegalStateException("Code expiré, veuillez en demander un nouveau");
         }
 
         Utilisateur user = token.getUser();
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
-
         passwordResetTokenRepository.delete(token);
     }
-    // -------------------- FORGOT PASSWORD --------------------
 
-    // -------------------- LOAD USER FOR SPRING SECURITY --------------------
+    // -------------------- LOAD USER --------------------
     public UserDetails loadUserByUsername(String email) {
-        // Récupérer tous les users avec cet email
         List<Utilisateur> users = userRepository.findAllByEmail(email);
 
         if (users.isEmpty()) {
-            throw new RuntimeException("Utilisateur non trouvé");
+            // ✅ S112
+            throw new NoSuchElementException("Utilisateur non trouvé");
         }
 
-        Utilisateur utilisateur;
-
-        if (users.size() > 1) {
-            // Prendre celui de la campagne ACTIVE
-            utilisateur = users.stream()
-                    .filter(u -> u.getCampagne() != null
-                            && u.getCampagne().getStatut() == StatutCampagne.ACTIVE)
-                    .findFirst()
-                    .orElse(users.get(0)); // fallback sur le premier si aucune campagne active
-        } else {
-            utilisateur = users.get(0);
-        }
+        Utilisateur utilisateur = users.size() > 1
+                ? users.stream()
+                .filter(u -> u.getCampagne() != null
+                        && u.getCampagne().getStatut() == StatutCampagne.ACTIVE)
+                .findFirst()
+                .orElse(users.get(0))
+                : users.get(0);
 
         return User.builder()
                 .username(utilisateur.getEmail())
@@ -212,10 +208,10 @@ public class AuthService {
                 .build();
     }
 
-    // Récupérer un utilisateur par email
+    // -------------------- FIND BY EMAIL --------------------
     public Utilisateur findByEmail(String email) {
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+                // ✅ S112
+                .orElseThrow(() -> new NoSuchElementException("Utilisateur non trouvé"));
     }
-
 }

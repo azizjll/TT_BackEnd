@@ -1,13 +1,18 @@
 package com.example.tt_backend.service;
 
+import com.example.tt_backend.dto.StructurePubliqueDTO;
 import com.example.tt_backend.entity.*;
+import com.example.tt_backend.exception.CampagneInvalideException;
 import com.example.tt_backend.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class StructureService {
@@ -24,43 +29,51 @@ public class StructureService {
         Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
 
-        // ── Campagne ACTIVE (peu importe le créateur) ─────────────
         List<Campagne> campagnes = campagneRepository
-                .findByStatut(StatutCampagne.ACTIVE); // ← plus de createurId
+                .findByStatut(StatutCampagne.ACTIVE);
 
         if (campagnes.isEmpty()) {
-            System.out.println("=== Aucune campagne active");
+            log.warn("Aucune campagne active trouvée");
             return List.of();
         }
 
         Long campagneActiveId = campagnes.get(0).getId();
 
-        // ── Filtrer par région du RH_REGIONAL ────────────────────
         if (utilisateur.getRole() == RoleType.RH_REGIONAL
                 && utilisateur.getRegion() != null) {
 
             Long regionId = utilisateur.getRegion().getId();
-            System.out.println("=== RH_REGIONAL région ID : " + regionId);
+
+            log.info("RH_REGIONAL connecté - regionId={}", regionId);
+
             return structureRepository
-                    .findByCampagneIdAndRegionId(campagneActiveId, regionId); // ← nouveau
+                    .findByCampagneIdAndRegionId(campagneActiveId, regionId);
         }
 
-        // ── Admin / autres rôles : toutes les structures ──────────
+        log.info("Accès admin/autres rôles - toutes structures campagneId={}", campagneActiveId);
+
         return structureRepository.findByCampagneId(campagneActiveId);
     }
 
-    // ← version sans SecurityContextHolder (publique)
-    public List<Structure> getStructuresCampagneActivePublique() {
-        List<Campagne> campagnesActives = campagneRepository
-                .findByStatut(StatutCampagne.ACTIVE);
+    public List<StructurePubliqueDTO> getStructuresParCodeCampagne(String code) {
 
-        if (campagnesActives.isEmpty()) {
-            return List.of();
+        Campagne campagne = campagneRepository
+                .findByCodeAndStatut(code, StatutCampagne.ACTIVE)
+                .orElseThrow(CampagneInvalideException::new);
+
+        LocalDate today = LocalDate.now();
+        if (today.isBefore(campagne.getDateDebut()) || today.isAfter(campagne.getDateFin())) {
+            throw new CampagneInvalideException();
         }
 
-        Long campagneActiveId = campagnesActives.get(0).getId();
-        return structureRepository.findByCampagneId(campagneActiveId);
+        log.info("Accès public structures via code campagne (id={})", campagne.getId());
+
+        return structureRepository.findByCampagneId(campagne.getId())
+                .stream()
+                .map(s -> new StructurePubliqueDTO(
+                        s.getId(), s.getNom(), s.getType().name(),
+                        s.getRegion().getNom(), s.getAdresse(),
+                        s.isDisponiblePourCandidature()))
+                .toList();
     }
-
-
 }

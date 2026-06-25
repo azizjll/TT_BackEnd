@@ -6,7 +6,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -36,19 +36,30 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Autowired
-    private JwtUtils jwtUtils;
+    // ✅ S6813 + S3305 — Injection par constructeur, pas @Autowired
+    private final JwtUtils jwtUtils;
+    private final UserDetailsServiceImpl userDetailsService;
 
-    @Autowired
-    private UserDetailsServiceImpl userDetailsService;
+    @Value("${app.cors.allowed-origins}")
+    private List<String> allowedOrigins; // ✅ Injecté, plus d'IP hardcodée
 
-    // Password Encoder
+    // ✅ URLs CDN injectées depuis application.properties, plus de hardcoding dans le CSP
+    @Value("${app.csp.style-src-extra}")
+    private String cspStyleSrcExtra;
+
+    @Value("${app.csp.font-src-extra}")
+    private String cspFontSrcExtra;
+
+    public SecurityConfig(JwtUtils jwtUtils, UserDetailsServiceImpl userDetailsService) {
+        this.jwtUtils = jwtUtils;
+        this.userDetailsService = userDetailsService;
+    }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    // Authentication Provider
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider =
@@ -57,79 +68,62 @@ public class SecurityConfig {
         return provider;
     }
 
-
-
-    // Authentication Manager
+    // ✅ S1130 + S112 — @SuppressWarnings justifié : signature imposée par Spring
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+    @SuppressWarnings({"java:S112", "java:S1130"})
+    // getAuthenticationManager() declares throws Exception — imposed by Spring, unavoidable
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config)
+            throws Exception {
         return config.getAuthenticationManager();
     }
 
-    // JWT Filter
+    // ✅ S3305 — jwtUtils passé directement ici
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
         return new JwtAuthenticationFilter(jwtUtils, userDetailsService);
     }
 
-    // Security Filter Chain
+    // ✅ S1130 + S112 — @SuppressWarnings justifié : signature imposée par Spring Security
     @Bean
+    @SuppressWarnings({"java:S112", "java:S1130","java:S4502"})// CSRF disabled — stateless JWT API, no session cookies
+    // HttpSecurity.build() declares throws Exception — imposed by Spring Security, unavoidable
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
-
-                // ✅ En-têtes de sécurité
                 .headers(headers -> headers
-
-                        // CSP active (sans reportOnly)
                         .contentSecurityPolicy(csp -> csp
                                 .policyDirectives(
                                         "default-src 'self'; " +
                                                 "script-src 'self'; " +
-                                                "style-src 'self' 'unsafe-inline'; " +
+                                                "style-src 'self' " + cspStyleSrcExtra + "; " +
                                                 "img-src 'self' data:; " +
-                                                "font-src 'self'; " +
+                                                "font-src 'self' " + cspFontSrcExtra + "; " +
                                                 "connect-src 'self'; " +
                                                 "frame-ancestors 'none'; " +
                                                 "form-action 'self';"
                                 )
                         )
-
-                        // ✅ Anti-Clickjacking
                         .frameOptions(frame -> frame.deny())
-
-                        // ✅ X-Content-Type-Options
                         .contentTypeOptions(Customizer.withDefaults())
                 )
-
                 .authorizeHttpRequests(auth -> auth
-
-                        // ✅ Routes publiques — uniquement ce qui est nécessaire
                         .requestMatchers(
                                 "/auth/**",
-                                "/api/campagnes/actives",
-                                "/api/structures/campagne-active/publique",
+
+
+                                "/api/campagnes/*/publique",
+                                "/api/structures/campagne/*/publique",
                                 "/api/candidatures/parent-by-matricule",
                                 "/api/candidatures/depot",
                                 "/files/**"
-
-
                         ).permitAll()
-
-                        // ✅ Routes SUPERADMIN — réservées au rôle SUPERADMIN uniquement
-                        .requestMatchers("/superadmin/**")
-                        .hasAuthority("SUPERADMIN")
-
-                        // ✅ Routes ADMIN
+                        .requestMatchers("/superadmin/**").hasAuthority("SUPERADMIN")
                         .requestMatchers(
                                 "/api/admin/**",
                                 "/api/campagnes/**"
-
-                        ).hasAnyAuthority("ADMIN", "SUPERADMIN","RH_REGIONAL")
-
-                        // ✅ Routes utilisateurs authentifiés
+                        ).hasAnyAuthority("ADMIN", "SUPERADMIN", "RH_REGIONAL")
                         .requestMatchers(
-
                                 "/api/candidatures/**",
                                 "/api/affectations/**",
                                 "/api/saisonniers/**",
@@ -139,16 +133,10 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/structures/**",
                                 "/swagger-ui/**",
-                                "/api/parents/**",
-
                                 "/swagger-ui.html"
-
                         ).authenticated()
-
-                        // ✅ Tout le reste → authentification requise
                         .anyRequest().authenticated()
                 )
-
                 .sessionManagement(sess -> sess
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
@@ -164,11 +152,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(
-                "http://localhost:4200",
-                "https://tt-front-end-amber.vercel.app"
-        ));
-        config.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS","PATCH"));
+        config.setAllowedOrigins(allowedOrigins);
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setAllowCredentials(true);
 
@@ -201,15 +186,12 @@ public class SecurityConfig {
 
                 if (jwtUtils.validateToken(token)) {
                     String email = jwtUtils.getUsernameFromToken(token);
-
                     var userDetails = userDetailsService.loadUserByUsername(email);
-
                     var authentication = new UsernamePasswordAuthenticationToken(
                             userDetails,
                             null,
                             userDetails.getAuthorities()
                     );
-
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
             }

@@ -44,6 +44,10 @@ public class Structure {
     // constructeur vide obligatoire
     public Structure() {}
 
+    public boolean isDisponiblePourCandidature() {
+        return this.recrutes < this.autorises;
+    }
+
     // ✅ Constructeur utilisé dans DataLoader
     public Structure(Long id, String nom, StructureType type, Region region) {
         this.id = id;

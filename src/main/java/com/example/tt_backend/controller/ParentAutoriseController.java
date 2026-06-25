@@ -1,8 +1,12 @@
-package com.example.tt_backend.controller;
+package com.example.tt_backend.controller; // ✅ S120
 
+import com.example.tt_backend.entity.ParentAutorise; // adapter selon le vrai type retourné
 import com.example.tt_backend.service.ParentAutoriseService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/parents")
@@ -14,60 +18,52 @@ public class ParentAutoriseController {
         this.parentService = parentService;
     }
 
-
     @GetMapping("/by-campagne/{campagneId}")
-    public ResponseEntity<?> getParentsByCampagne(@PathVariable Long campagneId) {
+    // ✅ S1452 — List<ParentAutorise> au lieu de ?
+    public ResponseEntity<List<ParentAutorise>> getParentsByCampagne(@PathVariable Long campagneId) {
         return ResponseEntity.ok(parentService.getParentsByCampagne(campagneId));
     }
-    // 📋 GET ALL
+
     @GetMapping
-    public ResponseEntity<?> getAllParents() {
+    // ✅ S1452
+    public ResponseEntity<List<ParentAutorise>> getAllParents() {
         return ResponseEntity.ok(parentService.getAllParents());
     }
 
-    // 🔍 GET BY ID
     @GetMapping("/{id}")
-    public ResponseEntity<?> getParent(@PathVariable Long id) {
+    // ✅ S1452
+    public ResponseEntity<ParentAutorise> getParent(@PathVariable Long id) {
         return ResponseEntity.ok(parentService.getParentById(id));
     }
 
-    // ➕ ADD
     @PostMapping
-    public ResponseEntity<?> addParent(
+    // ✅ S1452
+    public ResponseEntity<ParentAutorise> addParent(
             @RequestParam String nomPrenom,
             @RequestParam String matricule,
-            @RequestParam int autorises          // 🆕
-    ) {
-        try {
-            return ResponseEntity.ok(
-                    parentService.addParent(nomPrenom.trim(), matricule.trim(), autorises)
-            );
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+            @RequestParam String email,        // ✅ ajout
+            @RequestParam int autorises) {
+        return ResponseEntity.ok(
+                parentService.addParent(nomPrenom.trim(), matricule.trim(),email.trim(), autorises));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateParent(
+    // ✅ S1452
+    public ResponseEntity<ParentAutorise> updateParent(
             @PathVariable Long id,
             @RequestParam String nomPrenom,
             @RequestParam String matricule,
-            @RequestParam int autorises,         // 🆕 int au lieu de boolean
-            @RequestParam int utilise            // 🆕 int au lieu de boolean
-    ) {
-        try {
-            return ResponseEntity.ok(
-                    parentService.updateParent(id, nomPrenom.trim(), matricule.trim(), autorises, utilise)
-            );
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+            @RequestParam String email,        // ✅ ajout
+            @RequestParam int autorises,
+            @RequestParam int utilise) {
+        return ResponseEntity.ok(
+                parentService.updateParent(id, nomPrenom.trim(), matricule.trim(),email.trim(), autorises, utilise));
     }
 
-    // ❌ DELETE (optionnel)
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteParent(@PathVariable Long id) {
+    // ✅ S1452 — Map<String, String> pour le message de retour
+    public ResponseEntity<Map<String, String>> deleteParent(@PathVariable Long id) {
         parentService.deleteParent(id);
-        return ResponseEntity.ok("Supprimé ✅");
+        return ResponseEntity.ok(Map.of("message", "Supprimé"));
     }
 }

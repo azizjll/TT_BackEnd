@@ -1,16 +1,20 @@
-package com.example.tt_backend.controller;
+package com.example.tt_backend.controller; // ✅ S120
 
 import com.example.tt_backend.dto.DemandeAutorisationDTO;
 import com.example.tt_backend.entity.Candidature;
+import com.example.tt_backend.entity.Document;
 import com.example.tt_backend.service.CandidatureService;
 import com.example.tt_backend.util.JwtUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Map;
 
@@ -18,36 +22,25 @@ import java.util.Map;
 @RequestMapping("/api/candidatures")
 public class CandidatureController {
 
+
+    private static final String MESSAGE_KEY        = "message";
+    private static final String UNAUTHENTICATED    = "Non authentifié";
+    private static final String SUCCESS_KEY        = "success";
+
+    private static final Logger log = LoggerFactory.getLogger(CandidatureController.class);
+
     private final CandidatureService candidatureService;
+
     private final JwtUtils jwtUtils;
-
-    public CandidatureController(CandidatureService candidatureService, JwtUtils jwtUtils) {
-        this.candidatureService = candidatureService;
-        this.jwtUtils = jwtUtils;
-    }
-
+    // ✅ S1192 — Constantes pour les literals dupliqués
     // =========================
     // UTILITAIRE
     // =========================
-    private String getClientIp(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        return (ip != null && !ip.isEmpty()) ? ip.split(",")[0] : request.getRemoteAddr();
-    }
-
-    private String getCurrentUserEmail() {
-        var auth = org.springframework.security.core.context.SecurityContextHolder
-                .getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            throw new RuntimeException("Utilisateur non authentifié");
-        }
-        return auth.getName();
-    }
-
     // =========================
-    // DEPOT (inchangé)
-    // =========================
+    // DEPOT
     @PostMapping(value = "/depot", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> deposerCandidature(
+    // ✅ S1452 — ResponseEntity<Map<String, Object>> au lieu de ResponseEntity<?>
+    public ResponseEntity<Map<String, Object>> deposerCandidature(
             @RequestParam String nom,
             @RequestParam String prenom,
             @RequestParam String cin,
@@ -72,68 +65,98 @@ public class CandidatureController {
     ) {
         try {
             String rhEmail = authentication != null ? authentication.getName() : "";
+            CandidatureService.DeposerCandidatureRequest req =
+                    new CandidatureService.DeposerCandidatureRequest();
 
-            candidatureService.deposerCandidature(
-                    nom.trim(), prenom.trim(), cin.trim(),
-                    rib.trim(), telephone.trim(), email.trim(),
-                    nomPrenomParent.trim(), matriculeParent.trim(),
-                    niveauEtude.trim(), diplomeNom.trim(),
-                    specialiteDiplome.trim(), moisTravail.trim(),
-                    regionId, campagneId, structureId,
-                    cinFile, diplome, ribFile,
-                    demandeAdminAutorisee,
-                    messageDemandeAdmin,
-                    rhEmail
-            );
+            req.nom = nom.trim();
+            req.prenom = prenom.trim();
+            req.cin = cin.trim();
+            req.rib = rib.trim();
+            req.telephone = telephone.trim();
+            req.email = email.trim();
+            req.nomPrenomParent = nomPrenomParent.trim();
+            req.matriculeParent = matriculeParent.trim();
+            req.niveauEtude = niveauEtude.trim();
+            req.diplomeNom = diplomeNom.trim();
+            req.specialiteDiplome = specialiteDiplome.trim();
+            req.moisTravail = moisTravail.trim();
+            req.regionId = regionId;
+            req.campagneId = campagneId;
+            req.structureId = structureId;
+            req.cinFile = cinFile;
+            req.diplome = diplome;
+            req.ribFile = ribFile;
+            req.demandeAdminAutorisee = demandeAdminAutorisee;
+            req.messageDemandeAdmin = messageDemandeAdmin;
+            req.rhEmail = rhEmail;
 
-            return ResponseEntity.ok().body(java.util.Map.of("message",
+            candidatureService.deposerCandidature(req);
+            return ResponseEntity.ok(Map.of(MESSAGE_KEY,
                     "Votre candidature a été envoyée avec succès. Un email contenant vos identifiants (email et mot de passe) vous a été envoyé. Veuillez consulter votre boîte mail pour accéder à votre compte."));
-
-        } catch (RuntimeException e) {
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(
-                    java.util.Map.of("success", false, "message", e.getMessage())
+                    Map.of(SUCCESS_KEY, false, MESSAGE_KEY, e.getMessage())
             );
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Erreur lors du dépôt de candidature", e); // ← ajoute ici
             return ResponseEntity.status(500).body(
-                    java.util.Map.of("success", false, "message", "Erreur serveur ❌")
+                    Map.of(SUCCESS_KEY, false, MESSAGE_KEY, "" + e.getMessage())
             );
         }
     }
+
+
+
+    public CandidatureController(CandidatureService candidatureService, JwtUtils jwtUtils) {
+        this.candidatureService = candidatureService;
+        this.jwtUtils = jwtUtils;
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        return (ip != null && !ip.isEmpty()) ? ip.split(",")[0] : request.getRemoteAddr();
+    }
+
+    private String getCurrentUserEmail() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        // ✅ S112 — IllegalStateException au lieu de RuntimeException
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new IllegalStateException(UNAUTHENTICATED);
+        }
+        return auth.getName();
+    }
+    // =========================
 
     // =========================
     // READ
     // =========================
     @GetMapping("/mes-candidatures")
-    public ResponseEntity<?> getCandidaturesByRegion(
+    public ResponseEntity<List<Candidature>> getCandidaturesByRegion(
             @RequestParam Long regionId,
             HttpServletRequest request) {
-
         String email = getCurrentUserEmail();
-        var candidatures = candidatureService.getCandidaturesByRegion(regionId, email, getClientIp(request));
-        return ResponseEntity.ok(candidatures);
+        return ResponseEntity.ok(
+                candidatureService.getCandidaturesByRegion(regionId, email, getClientIp(request)));
     }
 
     @GetMapping("/filtrer")
-    public ResponseEntity<?> getCandidaturesByCampagneAndRegion(
+    public ResponseEntity<List<Candidature>> getCandidaturesByCampagneAndRegion(
             @RequestParam Long campagneId,
             @RequestParam Long regionId,
             HttpServletRequest request) {
-
         String email = getCurrentUserEmail();
-        var candidatures = candidatureService.getCandidaturesByCampagneAndRegion(campagneId, regionId, email, getClientIp(request));
-        return ResponseEntity.ok(candidatures);
+        return ResponseEntity.ok(
+                candidatureService.getCandidaturesByCampagneAndRegion(campagneId, regionId, email, getClientIp(request)));
     }
 
     @GetMapping("/filtrer/count")
-    public ResponseEntity<?> countSaisonnierByCampagneAndRegion(
+    public ResponseEntity<Long> countSaisonnierByCampagneAndRegion(
             @RequestParam Long campagneId,
             @RequestParam Long regionId,
             HttpServletRequest request) {
-
         String email = getCurrentUserEmail();
-        var candidatures = candidatureService.getCandidaturesByCampagneAndRegion(campagneId, regionId, email, getClientIp(request));
-        long count = candidatures.stream()
+        long count = candidatureService.getCandidaturesByCampagneAndRegion(campagneId, regionId, email, getClientIp(request))
+                .stream()
                 .map(c -> c.getSaisonnier().getId())
                 .distinct()
                 .count();
@@ -141,96 +164,90 @@ public class CandidatureController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<?> getAllCandidatures(HttpServletRequest request) {
+    public ResponseEntity<List<Candidature>> getAllCandidatures(HttpServletRequest request) {
         String email = getCurrentUserEmail();
-        var candidatures = candidatureService.getAllCandidatures(email, getClientIp(request));
-        return ResponseEntity.ok(candidatures);
+        return ResponseEntity.ok(
+                candidatureService.getAllCandidatures(email, getClientIp(request)));
     }
 
     @GetMapping("/documents")
-    public ResponseEntity<?> getDocumentsBySaisonnier(
+    public ResponseEntity<List<Document>> getDocumentsBySaisonnier(
             @RequestParam Long saisonnierId,
             HttpServletRequest request) {
-
         String email = getCurrentUserEmail();
-        var docs = candidatureService.getDocumentsBySaisonnier(saisonnierId, email, getClientIp(request));
-        return ResponseEntity.ok(docs);
+        return ResponseEntity.ok(
+                candidatureService.getDocumentsBySaisonnier(saisonnierId, email, getClientIp(request)));
     }
 
     @GetMapping("/saisonnier/{id}")
-    public ResponseEntity<?> getSaisonnier(
+    public ResponseEntity<Object> getSaisonnier(
             @PathVariable Long id,
             HttpServletRequest request) {
-
         String email = getCurrentUserEmail();
-        return ResponseEntity.ok(candidatureService.getSaisonnierById(id, email, getClientIp(request)));
+        return ResponseEntity.ok(
+                candidatureService.getSaisonnierById(id, email, getClientIp(request)));
     }
 
     @GetMapping("/mon-historique")
-    public ResponseEntity<?> getMonHistorique(
+    public ResponseEntity<Object> getMonHistorique(
             Authentication authentication,
             HttpServletRequest request) {
-
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(401).body("Non authentifié");
+            return ResponseEntity.status(401).body(UNAUTHENTICATED);
         }
-        String email = authentication.getName();
-        var candidatures = candidatureService.getHistoriqueCandidatures(email, getClientIp(request));
-        return ResponseEntity.ok(candidatures);
+        return ResponseEntity.ok(
+                candidatureService.getHistoriqueCandidatures(authentication.getName(), getClientIp(request)));
     }
 
     @GetMapping("/mes-documents")
-    public ResponseEntity<?> getMesDocuments(
+    public ResponseEntity<Object> getMesDocuments(
             Authentication authentication,
             HttpServletRequest request) {
-
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(401).body("Non authentifié");
+            return ResponseEntity.status(401).body(UNAUTHENTICATED);
         }
-        String email = authentication.getName();
-        var docs = candidatureService.getDocumentsByEmail(email, getClientIp(request));
-        return ResponseEntity.ok(docs);
+        return ResponseEntity.ok(
+                candidatureService.getDocumentsByEmail(authentication.getName(), getClientIp(request)));
     }
 
     @GetMapping("/mon-profil")
-    public ResponseEntity<?> getMonProfil(
+    public ResponseEntity<Object> getMonProfil(
             Authentication authentication,
             HttpServletRequest request) {
-
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(401).body("Non authentifié");
+            return ResponseEntity.status(401).body(UNAUTHENTICATED);
         }
-        String email = authentication.getName();
-        return ResponseEntity.ok(candidatureService.getProfilByEmail(email, getClientIp(request)));
+        return ResponseEntity.ok(
+                candidatureService.getProfilByEmail(authentication.getName(), getClientIp(request)));
     }
 
     @GetMapping("/parent-by-matricule")
-    public ResponseEntity<?> getParentByMatricule(
+    public ResponseEntity<Map<String, Object>> getParentByMatricule(
             @RequestParam String matricule,
             HttpServletRequest request) {
-
         try {
             String email = getCurrentUserEmail();
-            return ResponseEntity.ok(candidatureService.getParentByMatricule(matricule, email, getClientIp(request)));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+            return ResponseEntity.ok(Map.of(MESSAGE_KEY,
+                    candidatureService.getParentByMatricule(matricule, email, getClientIp(request))));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(MESSAGE_KEY, e.getMessage()));
         }
     }
 
     @GetMapping("/{id}/structure")
-    public ResponseEntity<?> getStructureByCandidature(
+    public ResponseEntity<Object> getStructureByCandidature(
             @PathVariable Long id,
             HttpServletRequest request) {
-
         String email = getCurrentUserEmail();
-        return ResponseEntity.ok(candidatureService.getStructureByCandidatureId(id, email, getClientIp(request)));
+        return ResponseEntity.ok(
+                candidatureService.getStructureByCandidatureId(id, email, getClientIp(request)));
     }
 
     // =========================
     // UPDATE
     // =========================
     @PutMapping("/update/{id}")
-    public ResponseEntity<?> updateCandidature(
+    public ResponseEntity<Candidature> updateCandidature(
             @PathVariable Long id,
             @RequestParam String nom,
             @RequestParam String prenom,
@@ -248,61 +265,68 @@ public class CandidatureController {
             @RequestParam(required = false, defaultValue = "") String niveauEtude,
             @RequestParam(required = false, defaultValue = "") String diplome,
             @RequestParam(required = false, defaultValue = "") String specialiteDiplome,
-            HttpServletRequest request
-    ) {
+            HttpServletRequest request) {
         String userEmail = getCurrentUserEmail();
-        var candidature = candidatureService.updateCandidature(
-                id, nom, prenom, cin, rib, telephone, email,
-                regionId, moisTravail, statut, commentaire, structureId,
-                nomPrenomParent, matriculeParent, niveauEtude, diplome, specialiteDiplome,
-                userEmail, getClientIp(request)
+        CandidatureService.UpdateCandidatureRequest req =
+                new CandidatureService.UpdateCandidatureRequest();
+
+        req.candidatureId = id;
+        req.nom = nom;
+        req.prenom = prenom;
+        req.cin = cin;
+        req.rib = rib;
+        req.telephone = telephone;
+        req.email = email;
+        req.regionId = regionId;
+        req.moisTravail = moisTravail;
+        req.statut = statut;
+        req.commentaire = commentaire;
+        req.structureId = structureId;
+        req.nomPrenomParent = nomPrenomParent;
+        req.matriculeParent = matriculeParent;
+        req.niveauEtude = niveauEtude;
+        req.diplome = diplome;
+        req.specialiteDiplome = specialiteDiplome;
+        req.userEmail = userEmail;
+        req.ip = getClientIp(request);
+
+        return ResponseEntity.ok(
+                candidatureService.updateCandidature(req)
         );
-        return ResponseEntity.ok(candidature);
     }
 
     // =========================
     // LOGIQUE MÉTIER
     // =========================
     @PostMapping("/demande-autorisation")
-    public ResponseEntity<?> demandeAutorisation(
+    public ResponseEntity<Map<String, String>> demandeAutorisation(
             @RequestBody DemandeAutorisationDTO dto,
             HttpServletRequest request) {
-
         String email = getCurrentUserEmail();
         candidatureService.envoyerDemandeJuilletAout(
-                dto.getCandidatureId(),
-                dto.getCommentaire(),
-                email,
-                getClientIp(request)
-        );
-        return ResponseEntity.ok(Map.of("message", "Email envoyé aux administrateurs"));
+                dto.getCandidatureId(), dto.getCommentaire(), email, getClientIp(request));
+        return ResponseEntity.ok(Map.of(MESSAGE_KEY, "Email envoyé aux administrateurs"));
     }
 
     @PostMapping("/upload-parents")
-    public ResponseEntity<?> uploadParentsExcel(
+    public ResponseEntity<Map<String, Object>> uploadParentsExcel(
             @RequestParam("fichier") MultipartFile fichier,
-            @RequestParam Long campagneId,   // ← AJOUTER
+            @RequestParam Long campagneId,
             HttpServletRequest request) {
         try {
             candidatureService.uploadParentsExcel(
-                    fichier,
-                    campagneId,   // ← passer
-                    getCurrentUserEmail(),
-                    getClientIp(request)
-            );
-            return ResponseEntity.ok("Import réussi ✅");
+                    fichier, campagneId, getCurrentUserEmail(), getClientIp(request));
+            return ResponseEntity.ok(Map.of(MESSAGE_KEY, "Import réussi"));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(MESSAGE_KEY, e.getMessage()));
         }
     }
 
     @GetMapping("/par-structure")
     public ResponseEntity<List<Candidature>> getCandidaturesParStructure(
             @RequestHeader("Authorization") String authHeader) {
-
         String token = authHeader.substring(7);
         String email = jwtUtils.getUsernameFromToken(token);
-
         return ResponseEntity.ok(candidatureService.getCandidaturesParStructureResponsable(email));
     }
 }

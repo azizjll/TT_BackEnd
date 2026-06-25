@@ -14,6 +14,5 @@ public interface EtatRHRepository extends JpaRepository<EtatRH, Long> {
     // Pour ADMIN : tous les états de la campagne active
     List<EtatRH> findByCampagneId(Long campagneId);
 
-    // Par région (utile pour l'admin)
-    List<EtatRH> findByCampagneIdAndRegionId(Long campagneId, Long regionId);
+
 }

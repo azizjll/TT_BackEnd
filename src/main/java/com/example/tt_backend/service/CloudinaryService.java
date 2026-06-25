@@ -11,7 +11,7 @@ import java.nio.file.Paths;
 import java.util.UUID;
 
 @Service
-public class CloudinaryService {   // ← garde le même nom pour ne pas changer tous les appels
+public class CloudinaryService {
 
     @Value("${storage.local.path}")
     private String storagePath;
@@ -37,12 +37,14 @@ public class CloudinaryService {   // ← garde le même nom pour ne pas changer
             return baseUrl + "/" + folder + "/" + fileName;
 
         } catch (IOException e) {
-            throw new RuntimeException("Erreur stockage local : " + e.getMessage(), e);
+            throw new IllegalStateException("Erreur stockage local : " + e.getMessage(), e);
         }
     }
 
     private String getExtension(String filename) {
-        if (filename == null || !filename.contains(".")) return "";
+        if (filename == null || !filename.contains(".")) {
+            return "";
+        }
         return "." + filename.substring(filename.lastIndexOf('.') + 1);
     }
 }

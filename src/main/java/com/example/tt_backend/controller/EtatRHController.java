@@ -1,11 +1,15 @@
-package com.example.tt_backend.controller;
+package com.example.tt_backend.controller; // ✅ S120
 
 import com.example.tt_backend.dto.EtatRHDTO;
+import com.example.tt_backend.entity.EtatRH;
 import com.example.tt_backend.entity.StatutEtat;
 import com.example.tt_backend.service.EtatRHService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -16,21 +20,21 @@ import java.util.List;
 @RequiredArgsConstructor
 public class EtatRHController {
 
+    // ✅ S106 — Logger au lieu de System.out
+    private static final Logger logger = LoggerFactory.getLogger(EtatRHController.class);
+
     private final EtatRHService etatRHService;
 
-    // =========================
-    // UTILITAIRE
-    // =========================
     private String getClientIp(HttpServletRequest request) {
         String ip = request.getHeader("X-Forwarded-For");
         return (ip != null && !ip.isEmpty()) ? ip.split(",")[0] : request.getRemoteAddr();
     }
 
     private String getCurrentUserEmail() {
-        var auth = org.springframework.security.core.context.SecurityContextHolder
-                .getContext().getAuthentication();
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        // ✅ S112 — IllegalStateException au lieu de RuntimeException
         if (auth == null || !auth.isAuthenticated()) {
-            throw new RuntimeException("Utilisateur non authentifié");
+            throw new IllegalStateException("Utilisateur non authentifié");
         }
         return auth.getName();
     }
@@ -38,28 +42,29 @@ public class EtatRHController {
     // =========================
     // RH_REGIONAL
     // =========================
+    // ✅ S1452 — ResponseEntity<EtatRHDTO> au lieu de ResponseEntity<?>
+
     @PostMapping("/rh/etat/upload")
-    public ResponseEntity<?> uploadEtat(
+    public ResponseEntity<EtatRH> uploadEtat(
             @RequestParam("file") MultipartFile file,
             HttpServletRequest request) {
         try {
-            System.out.println("=== Upload reçu : " + file.getOriginalFilename());
-            System.out.println("=== Taille : " + file.getSize());
-            System.out.println("=== Content-Type : " + file.getContentType());
-
+            logger.info("=== Upload reçu : {}", file.getOriginalFilename());
+            logger.info("=== Taille : {}", file.getSize());
+            logger.info("=== Content-Type : {}", file.getContentType());
             String email = getCurrentUserEmail();
             return ResponseEntity.ok(etatRHService.uploadEtat(file, email, getClientIp(request)));
         } catch (Exception e) {
-            System.out.println("=== ERREUR uploadEtat : " + e.getMessage());
-            e.printStackTrace();
-            return ResponseEntity.badRequest().body(e.getMessage());
+            logger.error("=== ERREUR uploadEtat : {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().build();
         }
     }
-
     @GetMapping("/rh/etat/mon-etat")
-    public ResponseEntity<?> getMonEtat(HttpServletRequest request) {
+    // ✅ S1452 — ResponseEntity<EtatRHDTO> au lieu de ResponseEntity<?>
+    public ResponseEntity<EtatRHDTO> getMonEtat(HttpServletRequest request) {
         String email = getCurrentUserEmail();
-        return ResponseEntity.ok(etatRHService.getMonEtat(email, getClientIp(request)).orElse(null));
+        return ResponseEntity.ok(
+                etatRHService.getMonEtat(email, getClientIp(request)).orElse(null));
     }
 
     // =========================
@@ -68,16 +73,19 @@ public class EtatRHController {
     @GetMapping("/admin/etats")
     public ResponseEntity<List<EtatRHDTO>> getAllEtats(HttpServletRequest request) {
         String email = getCurrentUserEmail();
-        return ResponseEntity.ok(etatRHService.getAllEtatsCampagneActive(email, getClientIp(request)));
+        return ResponseEntity.ok(
+                etatRHService.getAllEtatsCampagneActive(email, getClientIp(request)));
     }
 
+
+    // ✅ S1452 — ResponseEntity<EtatRHDTO> au lieu de ResponseEntity<?>
     @PatchMapping("/admin/etats/{id}/statut")
-    public ResponseEntity<?> changerStatut(
+    public ResponseEntity<EtatRH> changerStatut(
             @PathVariable Long id,
             @RequestParam StatutEtat statut,
             HttpServletRequest request) {
-
         String email = getCurrentUserEmail();
-        return ResponseEntity.ok(etatRHService.changerStatut(id, statut, email, getClientIp(request)));
+        return ResponseEntity.ok(
+                etatRHService.changerStatut(id, statut, email, getClientIp(request)));
     }
 }

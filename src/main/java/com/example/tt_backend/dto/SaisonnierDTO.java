@@ -12,10 +12,9 @@ public class SaisonnierDTO {
     private String rib;
     private String statut;
     private String moisTravail;
-    public Integer absences;
+    // ✅ S1104 — private au lieu de public (Lombok @Data génère le getter/setter)
+    private Integer absences;
 
-
-    // 🆕 statut passé en paramètre
     public static SaisonnierDTO from(Saisonnier s, String statut) {
         SaisonnierDTO dto = new SaisonnierDTO();
         dto.setId(s.getId());
@@ -23,9 +22,10 @@ public class SaisonnierDTO {
         dto.setPrenom(s.getPrenom());
         dto.setCin(String.valueOf(s.getCin()));
         dto.setRib(s.getRib());
-        dto.setStatut(statut);           // ✅ paramètre, pas le champ
+        dto.setStatut(statut);
         dto.setMoisTravail(s.getMoisTravail());
-        dto.absences    = s.getAbsences() != null ? s.getAbsences() : 0;
+        // ✅ Utiliser le setter généré par @Data au lieu d'accès direct au champ public
+        dto.setAbsences(s.getAbsences() != null ? s.getAbsences() : 0);
         return dto;
     }
 }

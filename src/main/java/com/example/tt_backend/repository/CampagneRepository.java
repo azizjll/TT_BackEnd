@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface CampagneRepository extends JpaRepository<Campagne, Long> {
@@ -14,17 +15,12 @@ public interface CampagneRepository extends JpaRepository<Campagne, Long> {
     // Recherche par statut
     List<Campagne> findByStatut(StatutCampagne statut);
 
-    // Recherche pour une seule région
-    List<Campagne> findByRegions_Id(Long regionId);
 
-    // Recherche pour plusieurs régions
-    List<Campagne> findByRegions_IdIn(List<Long> regionIds);
     List<Campagne> findByCreateurEmail(String email);
-    List<Campagne> findByCreateurEmailAndStatut(String email, StatutCampagne statut);
-
-    List<Campagne> findByStatutAndCreateurId(StatutCampagne statut, Long createurId);
 
 
     List<Campagne> findByCreateur(Utilisateur createur);
+    Optional<Campagne> findByCodeAndStatut(String code, StatutCampagne statut);
+
 
 }

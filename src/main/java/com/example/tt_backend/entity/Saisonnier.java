@@ -51,6 +51,9 @@ public class Saisonnier {
     @JsonIgnore
     private Utilisateur utilisateur;
 
-    public Saisonnier() {}
+    // ✅ S1186 — Commentaire expliquant pourquoi le constructeur est vide
+    public Saisonnier() {
+        // Constructeur vide requis par JPA
+    }
 
 }

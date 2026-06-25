@@ -3,6 +3,7 @@ package com.example.tt_backend.service;
 import com.example.tt_backend.entity.AuditLog;
 import com.example.tt_backend.repository.AuditLogRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -18,27 +19,38 @@ public class AuditLogService {
     private final AuditLogRepository auditLogRepository;
     private final ObjectMapper objectMapper;
 
-    @Async   // ← écriture asynchrone, pas d'impact sur les performances
-    public void log(String email, String action, String entite,
-                    Long entiteId, Object avant, Object apres,
-                    String ip, String statut) {
+    // ✅ S107 — Regrouper les paramètres dans un record
+    @Builder
+    public record AuditLogRequest(
+            String email,
+            String action,
+            String entite,
+            Long entiteId,
+            Object avant,
+            Object apres,
+            String ip,
+            String statut
+    ) {}
+
+    @Async
+    // ✅ S107 — 1 paramètre au lieu de 8
+    public void log(AuditLogRequest req) {
         try {
-            AuditLog log = new AuditLog();
-            log.setUtilisateurEmail(email);
-            log.setAction(action);
-            log.setEntite(entite);
-            log.setEntiteId(entiteId);
-            log.setAdresseIp(ip);
-            log.setStatut(statut);
+            AuditLog auditLog = new AuditLog();
+            auditLog.setUtilisateurEmail(req.email());
+            auditLog.setAction(req.action());
+            auditLog.setEntite(req.entite());
+            auditLog.setEntiteId(req.entiteId());
+            auditLog.setAdresseIp(req.ip());
+            auditLog.setStatut(req.statut());
 
-            if (avant != null)
-                log.setDonneesAvant(objectMapper.writeValueAsString(avant));
-            if (apres != null)
-                log.setDonneesApres(objectMapper.writeValueAsString(apres));
+            if (req.avant() != null)
+                auditLog.setDonneesAvant(objectMapper.writeValueAsString(req.avant()));
+            if (req.apres() != null)
+                auditLog.setDonneesApres(objectMapper.writeValueAsString(req.apres()));
 
-            auditLogRepository.save(log);
+            auditLogRepository.save(auditLog);
         } catch (Exception e) {
-            // Ne jamais bloquer le flux métier pour un log raté
             log.error("Erreur lors de l'enregistrement du log d'audit", e);
         }
     }

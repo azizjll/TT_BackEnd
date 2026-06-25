@@ -28,8 +28,9 @@ public class SaisonnierController {
     private String getCurrentUserEmail() {
         var auth = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication();
+        // ✅ S112 — IllegalStateException au lieu de RuntimeException
         if (auth == null || !auth.isAuthenticated()) {
-            throw new RuntimeException("Utilisateur non authentifié");
+            throw new IllegalStateException("Utilisateur non authentifié");
         }
         return auth.getName();
     }

@@ -14,14 +14,18 @@ import java.util.Map;
 @RequestMapping("/api/affectations")
 public class AffectationController {
 
-    @Autowired
-    private AffectationService affectationService;
+    // ✅ S6813 — Injection par constructeur
+    private final AffectationService affectationService;
+    private final StructureRepository structureRepository;
 
-    @Autowired
-    private StructureRepository structureRepository;
-
+    public AffectationController(AffectationService affectationService,
+                                 StructureRepository structureRepository) {
+        this.affectationService = affectationService;
+        this.structureRepository = structureRepository;
+    }
     @PostMapping("/assign")
-    public ResponseEntity<?> affecter(
+    // ✅ S1452 — Remplacer ResponseEntity<?> par ResponseEntity<Map<String, String>>
+    public ResponseEntity<Map<String, String>> affecter(
             @RequestParam Long saisonnierId,
             @RequestParam Long structureId,
             @RequestParam Long campagneId) {

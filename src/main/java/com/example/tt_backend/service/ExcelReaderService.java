@@ -5,9 +5,8 @@ import com.example.tt_backend.entity.Structure;
 import com.example.tt_backend.entity.StructureType;
 import com.example.tt_backend.repository.RegionRepository;
 import com.example.tt_backend.repository.StructureRepository;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +15,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Service
+@Slf4j
 public class ExcelReaderService {
 
     private final StructureRepository structureRepository;
@@ -28,81 +28,104 @@ public class ExcelReaderService {
     }
 
     public void importStructures(InputStream is) {
-        try {
-            Workbook workbook = WorkbookFactory.create(is);
+
+        Set<String> nomsExcel = new HashSet<>();
+
+        try (Workbook workbook = WorkbookFactory.create(is)) {
+
             Sheet sheet = workbook.getSheetAt(0);
 
-            // ← NOUVEAU : collecter les noms du fichier Excel
-            Set<String> nomsExcel = new HashSet<>();
-
             for (Row row : sheet) {
-                if (row.getRowNum() == 0) continue;
-
-                String regionNom    = getCellString(row, 0);
-                String structureNom = getCellString(row, 1);
-                String type         = getCellString(row, 2).trim().toUpperCase();
-                String adresse      = getCellString(row, 3);
-                int autorises       = getCellInt(row, 4);
-                int recrutes        = getCellInt(row, 5);
-
-                if (regionNom.isBlank() || structureNom.isBlank()) continue;
-
-                Region region = regionRepository.findByNom(regionNom).orElse(null);
-                if (region == null) {
-                    System.out.println("⚠ Région non trouvée : " + regionNom);
+                if (row.getRowNum() == 0) {
                     continue;
                 }
 
-                nomsExcel.add(structureNom); // ← tracker les noms présents
-
-                // ← chercher par NOM + RÉGION (pas juste nom)
-                Structure structure = structureRepository
-                        .findByNomAndRegion(structureNom, region)
-                        .orElse(new Structure());
-
-                structure.setNom(structureNom);
-                structure.setAdresse(adresse);
-                structure.setRegion(region);
-                structure.setAutorises(autorises);
-                structure.setRecrutes(recrutes);
-
-                try {
-                    structure.setType(StructureType.valueOf(type));
-                } catch (IllegalArgumentException e) {
-                    System.out.println("❌ Type invalide : " + type);
-                    continue;
-                }
-
-                structureRepository.save(structure);
-                System.out.println("✅ Sauvegardé : " + structureNom);
+                processRow(row, nomsExcel);
             }
 
-            workbook.close();
-            System.out.println("✅ Import terminé — " + nomsExcel.size() + " structures traitées");
+            log.info("Import terminé — {} structures traitées", nomsExcel.size());
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Erreur import Excel", e);
+            throw new RuntimeException("Erreur import Excel", e);
         }
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────
+    // ===================== LOGIQUE LIGNE =====================
+    private void processRow(Row row, Set<String> nomsExcel) {
 
+        String regionNom = getCellString(row, 0);
+        String structureNom = getCellString(row, 1);
+
+        if (regionNom.isBlank() || structureNom.isBlank()) {
+            return; // ✔ remplace plusieurs continue
+        }
+
+        Region region = regionRepository.findByNom(regionNom).orElse(null);
+
+        if (region == null) {
+            log.warn("Région non trouvée : {}", regionNom);
+            return;
+        }
+
+        nomsExcel.add(structureNom);
+
+        String type = getCellString(row, 2);
+        String adresse = getCellString(row, 3);
+        int autorises = getCellInt(row, 4);
+        int recrutes = getCellInt(row, 5);
+
+        Structure structure = structureRepository
+                .findByNomAndRegion(structureNom, region)
+                .orElse(new Structure());
+
+        structure.setNom(structureNom);
+        structure.setAdresse(adresse);
+        structure.setRegion(region);
+        structure.setAutorises(autorises);
+        structure.setRecrutes(recrutes);
+
+        applyType(structure, type, structureNom);
+
+        structureRepository.save(structure);
+
+        log.info("Structure sauvegardée : {}", structureNom);
+    }
+
+    // ===================== TYPE SAFE =====================
+    private void applyType(Structure structure, String type, String structureNom) {
+        try {
+            structure.setType(StructureType.valueOf(type.trim().toUpperCase()));
+        } catch (Exception e) {
+            log.warn("Type invalide '{}' pour structure {}", type, structureNom);
+            structure.setType(StructureType.ESPACE_COMMERCIAL);
+        }
+    }
+
+    // ===================== HELPERS =====================
     private String getCellString(Row row, int col) {
-        if (row.getCell(col) == null) return "";
-        return switch (row.getCell(col).getCellType()) {
-            case STRING  -> row.getCell(col).getStringCellValue().trim();
-            case NUMERIC -> String.valueOf((int) row.getCell(col).getNumericCellValue());
-            default      -> "";
+        Cell cell = row.getCell(col);
+        if (cell == null) return "";
+
+        return switch (cell.getCellType()) {
+            case STRING -> cell.getStringCellValue().trim();
+            case NUMERIC -> String.valueOf((int) cell.getNumericCellValue());
+            default -> "";
         };
     }
 
     private int getCellInt(Row row, int col) {
-        if (row.getCell(col) == null) return 0;
-        return switch (row.getCell(col).getCellType()) {
-            case NUMERIC -> (int) row.getCell(col).getNumericCellValue();
-            case STRING  -> {
-                try { yield Integer.parseInt(row.getCell(col).getStringCellValue().trim()); }
-                catch (NumberFormatException e) { yield 0; }
+        Cell cell = row.getCell(col);
+        if (cell == null) return 0;
+
+        return switch (cell.getCellType()) {
+            case NUMERIC -> (int) cell.getNumericCellValue();
+            case STRING -> {
+                try {
+                    yield Integer.parseInt(cell.getStringCellValue().trim());
+                } catch (NumberFormatException e) {
+                    yield 0;
+                }
             }
             default -> 0;
         };

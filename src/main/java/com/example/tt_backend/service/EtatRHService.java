@@ -6,6 +6,7 @@ import com.example.tt_backend.repository.CampagneRepository;
 import com.example.tt_backend.repository.EtatRHRepository;
 import com.example.tt_backend.repository.UtilisateurRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EtatRHService {
@@ -22,43 +24,43 @@ public class EtatRHService {
     private final CampagneRepository campagneRepository;
     private final UtilisateurRepository utilisateurRepository;
     private final CloudinaryService cloudinaryService;
-    private final AuditLogService auditLogService;  // 🆕
+    private final AuditLogService auditLogService;
+
+    private static final String ENTITE = "EtatRH";
+    private static final String SUCCESS = "SUCCESS";
 
     // ── RH_REGIONAL : uploader son état ──────────────────────────
     public EtatRH uploadEtat(MultipartFile file, String email, String ip) {
 
-        System.out.println("=== Email JWT : " + email);
+        log.info("Email JWT : {}", email);
 
         Utilisateur rh = utilisateurRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable : " + email));
+                .orElseThrow(() -> new IllegalArgumentException("Utilisateur introuvable : " + email));
 
-        System.out.println("=== RH trouvé : " + rh.getId() + " | région : " + rh.getRegion());
+        log.info("RH trouvé : {} | région : {}", rh.getId(), rh.getRegion());
 
         if (rh.getRegion() == null) {
-            throw new RuntimeException("Aucune région associée à ce compte RH");
+            throw new IllegalStateException("Aucune région associée à ce compte RH");
         }
 
-        // ── Campagne active ───────────────────────────────────────
         List<Campagne> campagnes = campagneRepository.findByStatut(StatutCampagne.ACTIVE);
-        System.out.println("=== Campagnes actives : " + campagnes.size());
+        log.info("Campagnes actives : {}", campagnes.size());
 
         if (campagnes.isEmpty()) {
-            throw new RuntimeException("Aucune campagne active trouvée");
+            throw new IllegalStateException("Aucune campagne active trouvée");
         }
 
         Campagne campagne = campagnes.get(0);
-        System.out.println("=== Campagne ID : " + campagne.getId());
+        log.info("Campagne ID : {}", campagne.getId());
 
-        // ── Upload Cloudinary ─────────────────────────────────────
         String url;
         try {
             url = cloudinaryService.uploadFile(file, "etats_rh");
-            System.out.println("=== URL Cloudinary : " + url);
+            log.info("URL Cloudinary : {}", url);
         } catch (Exception e) {
-            throw new RuntimeException("Erreur Cloudinary : " + e.getMessage());
+            throw new IllegalStateException("Erreur Cloudinary : " + e.getMessage(), e);
         }
 
-        // ── Upsert ───────────────────────────────────────────────
         EtatRH etat = etatRHRepository
                 .findByUtilisateurIdAndCampagneId(rh.getId(), campagne.getId())
                 .orElse(new EtatRH());
@@ -77,10 +79,20 @@ public class EtatRHService {
 
         EtatRH saved = etatRHRepository.save(etat);
 
-        // 🆕 AUDIT
         String action = snapshotAvant == null ? "UPLOAD_ETAT" : "RE_UPLOAD_ETAT";
-        auditLogService.log(email, action, "EtatRH",
-                saved.getId(), snapshotAvant, saved, ip, "SUCCESS");
+
+        auditLogService.log(
+                AuditLogService.AuditLogRequest.builder()
+                        .email(email)
+                        .action(action)
+                        .entite(ENTITE)
+                        .entiteId(saved.getId())
+                        .avant(snapshotAvant)
+                        .apres(saved)
+                        .ip(ip)
+                        .statut(SUCCESS)
+                        .build()
+        );
 
         return saved;
     }
@@ -89,16 +101,25 @@ public class EtatRHService {
     public Optional<EtatRHDTO> getMonEtat(String email, String ip) {
 
         Utilisateur rh = utilisateurRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
+                .orElseThrow(() -> new IllegalArgumentException("Utilisateur introuvable"));
 
-        Campagne campagne = campagneRepository
-                .findByStatut(StatutCampagne.ACTIVE)
+        Campagne campagne = campagneRepository.findByStatut(StatutCampagne.ACTIVE)
                 .stream().findFirst()
                 .orElse(null);
 
         if (campagne == null) {
-            auditLogService.log(email, "READ_MON_ETAT", "EtatRH",
-                    null, null, "aucune campagne active", ip, "SUCCESS");
+            auditLogService.log(
+                    AuditLogService.AuditLogRequest.builder()
+                            .email(email)
+                            .action("READ_MON_ETAT")
+                            .entite(ENTITE)
+                            .entiteId(null)
+                            .avant(null)
+                            .apres("aucune campagne active")
+                            .ip(ip)
+                            .statut(SUCCESS)
+                            .build()
+            );
             return Optional.empty();
         }
 
@@ -106,11 +127,18 @@ public class EtatRHService {
                 .findByUtilisateurIdAndCampagneId(rh.getId(), campagne.getId())
                 .map(this::toDTO);
 
-        // 🆕 AUDIT
-        auditLogService.log(email, "READ_MON_ETAT", "EtatRH",
-                campagne.getId(), null,
-                result.isPresent() ? "état trouvé" : "aucun état",
-                ip, "SUCCESS");
+        auditLogService.log(
+                AuditLogService.AuditLogRequest.builder()
+                        .email(email)
+                        .action("READ_MON_ETAT")
+                        .entite(ENTITE)
+                        .entiteId(campagne.getId())
+                        .avant(null)
+                        .apres(result.isPresent() ? "état trouvé" : "aucun état")
+                        .ip(ip)
+                        .statut(SUCCESS)
+                        .build()
+        );
 
         return result;
     }
@@ -118,42 +146,71 @@ public class EtatRHService {
     // ── ADMIN : tous les états de la campagne active ──────────────
     public List<EtatRHDTO> getAllEtatsCampagneActive(String email, String ip) {
 
-        Campagne campagne = campagneRepository
-                .findByStatut(StatutCampagne.ACTIVE)
+        Campagne campagne = campagneRepository.findByStatut(StatutCampagne.ACTIVE)
                 .stream().findFirst()
                 .orElse(null);
 
         if (campagne == null) {
-            auditLogService.log(email, "READ_ALL_ETATS", "EtatRH",
-                    null, null, "aucune campagne active", ip, "SUCCESS");
+            auditLogService.log(
+                    AuditLogService.AuditLogRequest.builder()
+                            .email(email)
+                            .action("READ_ALL_ETATS")
+                            .entite(ENTITE)
+                            .entiteId(null)
+                            .avant(null)
+                            .apres("aucune campagne active")
+                            .ip(ip)
+                            .statut(SUCCESS)
+                            .build()
+            );
             return List.of();
         }
 
         List<EtatRHDTO> result = etatRHRepository
                 .findByCampagneId(campagne.getId())
-                .stream().map(this::toDTO)
+                .stream()
+                .map(this::toDTO)
                 .collect(Collectors.toList());
 
-        // 🆕 AUDIT
-        auditLogService.log(email, "READ_ALL_ETATS", "EtatRH",
-                campagne.getId(), null, result.size() + " résultats", ip, "SUCCESS");
+        auditLogService.log(
+                AuditLogService.AuditLogRequest.builder()
+                        .email(email)
+                        .action("READ_ALL_ETATS")
+                        .entite(ENTITE)
+                        .entiteId(campagne.getId())
+                        .avant(null)
+                        .apres(result.size() + " résultats")
+                        .ip(ip)
+                        .statut(SUCCESS)
+                        .build()
+        );
 
         return result;
     }
 
     // ── ADMIN : valider / rejeter ─────────────────────────────────
     public EtatRH changerStatut(Long etatId, StatutEtat statut, String email, String ip) {
+
         EtatRH etat = etatRHRepository.findById(etatId)
-                .orElseThrow(() -> new RuntimeException("État introuvable"));
+                .orElseThrow(() -> new IllegalArgumentException("État introuvable : " + etatId));
 
         String snapshotAvant = etat.getStatut().toString();
 
         etat.setStatut(statut);
         EtatRH saved = etatRHRepository.save(etat);
 
-        // 🆕 AUDIT
-        auditLogService.log(email, "CHANGER_STATUT", "EtatRH",
-                etatId, snapshotAvant, statut, ip, "SUCCESS");
+        auditLogService.log(
+                AuditLogService.AuditLogRequest.builder()
+                        .email(email)
+                        .action("CHANGER_STATUT")
+                        .entite(ENTITE)
+                        .entiteId(etatId)
+                        .avant(snapshotAvant)
+                        .apres(statut)
+                        .ip(ip)
+                        .statut(SUCCESS)
+                        .build()
+        );
 
         return saved;
     }

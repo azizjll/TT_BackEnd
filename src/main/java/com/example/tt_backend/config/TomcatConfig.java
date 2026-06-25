@@ -12,12 +12,10 @@ public class TomcatConfig {
     @Bean
     public WebServerFactoryCustomizer<TomcatServletWebServerFactory> tomcatCustomizer() {
         return factory -> factory.addConnectorCustomizers(connector -> {
-            // Augmente la limite des parts multipart directement sur Tomcat
-            var tomcat = (org.apache.catalina.connector.Connector) connector;
-            tomcat.setMaxParameterCount(500);
+            // ✅ S1905 — Cast supprimé, connector est déjà de type Connector
+            connector.setMaxParameterCount(500);
 
-            // Accède au protocol handler pour les limits multipart
-            if (tomcat.getProtocolHandler() instanceof Http11NioProtocol proto) {
+            if (connector.getProtocolHandler() instanceof Http11NioProtocol proto) {
                 proto.setMaxKeepAliveRequests(500);
             }
         });

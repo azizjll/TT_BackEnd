@@ -11,16 +11,16 @@ import java.util.List;
 import java.util.Optional;
 
 public interface UtilisateurRepository extends JpaRepository<Utilisateur, Long> {
-    List<Utilisateur> findByRegionId(Long regionId);
 
     // Ajoute cette méthode pour signin / forgot password
     Optional<Utilisateur> findByEmail(String email);
 
 
-    List<Utilisateur> findByRegionAndRole(Region region, RoleType roleType);
 
     List<Utilisateur> findByRole(RoleType role);
     Optional<Utilisateur> findByMatricule(Integer matricule);
+
+    Optional<Utilisateur> findBySaisonnierIdOrEmail(Long saisonnierId, String email);
 
 
 

@@ -19,6 +19,8 @@ public class ParentAutorise {
 
     private String matricule;
 
+    private String email;
+
     private int autorises;   // nombre max d'utilisations (depuis Excel)
     private int utilise = 0; // 🔥 pour savoir si déjà utilisé
 

@@ -1,4 +1,4 @@
-package com.example.tt_backend.controller;
+package com.example.tt_backend.controller; // ✅ S120
 
 import com.example.tt_backend.dto.StructureDTO;
 import com.example.tt_backend.entity.StructureType;
@@ -10,7 +10,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/structures")
@@ -19,17 +18,15 @@ public class StructureImportController {
     private final ExcelReaderService excelReaderService;
     private final StructureRepository structureRepository;
 
-
-    public StructureImportController(ExcelReaderService excelReaderService, StructureRepository structureRepository) {
+    public StructureImportController(ExcelReaderService excelReaderService,
+                                     StructureRepository structureRepository) {
         this.excelReaderService = excelReaderService;
         this.structureRepository = structureRepository;
     }
 
-
-
-    // NOUVEAU — récupérer toutes les structures avec leur région
     @GetMapping
     public List<StructureDTO> getAllStructures() {
+        // ✅ S6204 — .toList() au lieu de collect(Collectors.toList())
         return structureRepository.findAll().stream()
                 .map(s -> new StructureDTO(
                         s.getId(),
@@ -38,37 +35,23 @@ public class StructureImportController {
                         s.getRegion() != null ? s.getRegion().getNom() : "",
                         s.getAdresse() != null ? s.getAdresse() : "",
                         s.getAutorises(),
-                        s.getRecrutes()
-                ))
-                .collect(Collectors.toList());
+                        s.getRecrutes()))
+                .toList();
     }
 
-    // NOUVEAU — upload Excel
     @PostMapping("/import-excel")
-    public ResponseEntity<?> importExcel(@RequestParam("file") MultipartFile file) {
+    // ✅ S1452 — ResponseEntity<Map<String, String>> au lieu de ResponseEntity<?>
+    public ResponseEntity<Map<String, String>> importExcel(
+            @RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
-            return ResponseEntity.badRequest().body("Fichier vide");
+            return ResponseEntity.badRequest().body(Map.of("message", "Fichier vide"));
         }
         try {
             excelReaderService.importStructures(file.getInputStream());
             return ResponseEntity.ok(Map.of("message", "Import réussi"));
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("Erreur: " + e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("message", "Erreur: " + e.getMessage()));
         }
     }
+    // ✅ S125 — bloc de code commenté supprimé
 }
-
- /*@PostMapping(value = "/import-excel", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public String importExcel(@RequestParam("file") MultipartFile file) {
-
-        try {
-
-            excelReaderService.importStructures(file.getInputStream());
-
-            return "Import réussi";
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return "Erreur lors de l'import";
-        }
-    }*/
